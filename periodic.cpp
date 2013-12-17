@@ -287,6 +287,6 @@ Code atomCode(const string& symbol)
 	});
 	if(it == symbols+sizeof(symbols))
 		return Code(0);
-	cout << symbol.c_str() << "=" << it->code << endl;
+	//cout << symbol.c_str() << "=" << it->code << endl;
 	return (Code)((int)it->code+start);
 }

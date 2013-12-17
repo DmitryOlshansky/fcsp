@@ -30,5 +30,5 @@ struct LevelTwo{
 	int index;
 };
 
-std::unordered_map<int, LevelOne> read1Order(std::istream& inp);
+std::unordered_map<int, LevelOne> read1stOrder(std::istream& inp);
 std::unordered_map<int, LevelTwo> read2ndOrder(std::istream& inp);

@@ -6,7 +6,7 @@
 
 using namespace std;
 
-std::unordered_map<int, LevelOne> read1Order(std::istream& inp)
+std::unordered_map<int, LevelOne> read1stOrder(std::istream& inp)
 {
 	unordered_map<int, LevelOne> descr;
 	string s;
@@ -17,7 +17,7 @@ std::unordered_map<int, LevelOne> read1Order(std::istream& inp)
 		string valency = parser.quotedString();
 		stringstream dcStr(parser.line()); //rest of the line
 		int dc;
-		cout << valency << endl;
+		//cout << valency << endl;
 		dcStr >> dc;
 		Code code = atomCode(sym);
 		vector<int> v;		
@@ -34,5 +34,12 @@ std::unordered_map<int, LevelOne> read1Order(std::istream& inp)
 		}
 		descr.emplace(code, LevelOne(code, move(v), dc));
 	}
+	return descr;
+}
+
+std::unordered_map<int, LevelTwo> read2ndOrder(std::istream& inp)
+{
+	unordered_map<int, LevelTwo> descr;
+	//vector<SDF> sdf = readSdf(inp);
 	return descr;
 }
