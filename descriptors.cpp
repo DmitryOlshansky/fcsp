@@ -3,6 +3,7 @@
 #include <iostream>
 #include "descriptors.h"
 #include "parser.h"
+#include "ctab.h"
 
 using namespace std;
 
@@ -40,6 +41,6 @@ std::unordered_map<int, LevelOne> read1stOrder(std::istream& inp)
 std::unordered_map<int, LevelTwo> read2ndOrder(std::istream& inp)
 {
 	unordered_map<int, LevelTwo> descr;
-	//vector<SDF> sdf = readSdf(inp);
+	vector<SDF> sdf = readSdf(inp);
 	return descr;
 }

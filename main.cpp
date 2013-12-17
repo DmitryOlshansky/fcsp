@@ -71,7 +71,15 @@ int main(int argc, const char* argv[])
     }
     fs::path base(descriptors);
     ifstream descr1((base / "descr1.csv").c_str());
+    if(!descr1){
+    	cerr << "Failed to open descr1.csv, check your -d option" << endl;
+    	return 1;
+    }
     ifstream descr2((base / "descr2.sdf").c_str());
+    if(!descr2){
+		cerr << "Failed to open descr2.sdf, check -d option" << endl;
+		return 1;
+	}
 	try{
 		auto order1 = read1stOrder(descr1);
 		auto order2 = read2ndOrder(descr2);

@@ -219,6 +219,17 @@ struct TrackPath: public default_bfs_visitor {
 	}
 };
 
+class CodeWriter {
+public:
+	CodeWriter(ChemGraph& graph):g(graph){}
+	template <class VertexOrEdge>
+	void operator()(std::ostream& out, const VertexOrEdge& v) const {
+	  out << "[label=\"" << atomSymbol(g[v].code) << " [" << v << "]" << "\"]";
+	}
+private:
+	ChemGraph& g;
+};
+
 struct FCSP::Impl{
 	Impl(std::unordered_map<int, LevelOne> f, std::unordered_map<int, LevelTwo> s):
 		order1(std::move(f)), order2(std::move(s)){}
@@ -231,7 +242,7 @@ struct FCSP::Impl{
 
 	void dumpGraph(ostream& out)
 	{
-		write_graphviz(out, graph);
+		write_graphviz(out, graph, CodeWriter(graph));
 	}
 
 	void linear(ostream& out)
