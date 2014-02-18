@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <string>
 #include <sstream>
 #include <iostream>
@@ -7,9 +8,8 @@
 
 using namespace std;
 
-std::unordered_map<int, LevelOne> read1stOrder(std::istream& inp)
+void read1stOrder(istream& inp, vector<LevelOne> &dest)
 {
-	unordered_map<int, LevelOne> descr;
 	string s;
 	Parser parser(inp);
 	while (!parser.eof())
@@ -20,27 +20,26 @@ std::unordered_map<int, LevelOne> read1stOrder(std::istream& inp)
 		int dc;
 		//cout << valency << endl;
 		dcStr >> dc;
-		Code code = atomCode(sym);
-		vector<int> v;		
+		Code code(sym);
 		stringstream str(valency);
 		for (;;)
 		{
-			int k;
+			int val;
 			char delim;
-			str >> k;			
-			v.push_back(k);
+			str >> val;
+			LevelOne toInsert(code, val, dc);
+			auto it = lower_bound(begin(dest), end(dest), toInsert);
+			dest.insert(it, toInsert);
 			str >> delim;
 			if (!str.good() || delim != ',')
 				break;
 		}
-		descr.emplace(code, LevelOne(code, move(v), dc));
 	}
-	return descr;
+	for (auto a : dest)
+		cout << "*** " << a.center.symbol() << " " << a.valence << " " << "DC: " << a.dc << endl;
 }
 
-std::unordered_map<int, LevelTwo> read2ndOrder(std::istream& inp)
+void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 {
-	unordered_map<int, LevelTwo> descr;
 	vector<SDF> sdf = readSdf(inp);
-	return descr;
 }

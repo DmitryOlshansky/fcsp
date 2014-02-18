@@ -7,28 +7,34 @@
 
 struct LevelOne{
 	Code center;
-	std::vector<int> valence;
-	int index;
-	LevelOne(Code center_, std::vector<int> valence_, int index_):
-		center(center_), valence(valence_), index(index_){}
-};
-
-enum {
-	Z = -1,
-	R = -2
+	int valence;
+	int dc;
+	LevelOne(Code center_, int valence_, int dc_):
+		center(center_), valence(valence_), dc(dc_){}
+	bool operator<(const LevelOne& rhs) const
+	{
+		return center < rhs.center || (center == rhs.center && valence < rhs.valence);
+	}
 };
 
 struct Linked{
-	int atom;
+	Code atom;
 	int bondType;
 };
 
 struct LevelTwo{
 	Code center;
-	std::vector<Linked> bonds;
 	int valence;
-	int index;
+	std::vector<Linked> bonds;
+	int dc;
+	LevelTwo(Code center_, int valence_, std::vector<Linked> linked, int dc_) :
+		center(center_), valence(valence_), bonds(linked), dc(dc_){}
+	bool operator<(const LevelOne& rhs) const
+	{
+		return center < rhs.center || (center == rhs.center && valence < rhs.valence);
+	}
 };
 
-std::unordered_map<int, LevelOne> read1stOrder(std::istream& inp);
-std::unordered_map<int, LevelTwo> read2ndOrder(std::istream& inp);
+//read
+void read1stOrder(std::istream& inp, std::vector<LevelOne> &dest);
+void read2ndOrder(std::istream& inp, std::vector<LevelTwo> &dest);

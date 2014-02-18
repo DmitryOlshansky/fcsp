@@ -224,14 +224,14 @@ public:
 	CodeWriter(ChemGraph& graph):g(graph){}
 	template <class VertexOrEdge>
 	void operator()(std::ostream& out, const VertexOrEdge& v) const {
-	  out << "[label=\"" << atomSymbol(g[v].code) << " [" << v << "]" << "\"]";
+	  out << "[label=\"" << g[v].code.symbol() << " [" << v << "]" << "\"]";
 	}
 private:
 	ChemGraph& g;
 };
 
 struct FCSP::Impl{
-	Impl(std::unordered_map<int, LevelOne> f, std::unordered_map<int, LevelTwo> s):
+	Impl(std::vector<LevelOne> f, std::vector<LevelTwo> s) :
 		order1(std::move(f)), order2(std::move(s)){}
 
 	void load(istream& inp)
@@ -252,12 +252,22 @@ struct FCSP::Impl{
 		auto vrtx = vertices(graph);
 		for (auto i = vrtx.first; i != vrtx.second; i++)
 		{
-			auto j = order1.find(graph[*i].code);
-			if (j != order1.end())
+			//TODO: pattern match 2nd order
+			auto edges = out_edges(*i, graph);
+			int valency = 0;
+			for (auto p = edges.first; p != edges.second; p++)
+			{
+				valency += graph[*p].type;
+			}
+			cout << "VALENCY " << valency << " for " << graph[*i].code.symbol() << endl;
+			LevelOne t(graph[*i].code, valency, 0);
+			auto range = equal_range(order1.begin(), order1.end(), t);
+			auto j = range.first;
+			for (; j != range.second; ++j)
 			{
 				//out << *i << ": " << atomSymbol(j->second.center)
 				//		<< " DC:" << j->second.index << endl;
-				dcs.emplace_back(*i, j->second.index);
+				dcs.emplace_back(*i, j->dc);
 			}
 		}
 		out << endl;
@@ -285,14 +295,19 @@ struct FCSP::Impl{
 			}
 		}
 	}
+
+	void cyclic(ostream& out)
+	{
+
+	}
 private:
-	std::unordered_map<int, LevelOne> order1;
-	std::unordered_map<int, LevelTwo> order2;
+	std::vector<LevelOne> order1;
+	std::vector<LevelTwo> order2;
 	ChemGraph graph;
 	CTab tab;
 };
 
-FCSP::FCSP(std::unordered_map<int, LevelOne> first, std::unordered_map<int, LevelTwo> second):
+FCSP::FCSP(std::vector<LevelOne> first, std::vector<LevelTwo> second) :
 	pimpl(new FCSP::Impl(std::move(first), std::move(second))){}
 
 void FCSP::load(std::istream& inp)

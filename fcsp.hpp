@@ -4,16 +4,16 @@
  *  Created on: Dec 16, 2013
  *      Author: dmitry
  */
+#pragma once
+
 #include <vector>
-#include <unordered_map>
 #include <iostream>
 #include <memory>
 #include "descriptors.h"
 
-#pragma once
 
 struct FCSP {
-	FCSP(std::unordered_map<int, LevelOne> first, std::unordered_map<int, LevelTwo> second);
+	FCSP(std::vector<LevelOne> first, std::vector<LevelTwo> second);
 	void load(std::istream& inp);
 	void dumpGraph(std::ostream& dot);
 	void linear(std::ostream& out);

@@ -100,13 +100,10 @@ CTab readMol(Parser& parser)
 		parser.matchfln("xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee",
 			x, y, z, symbol, ddd, ccc, sss, hhh, bbb, vvv, HHH,
 			rrr, iii, mmm, nnn, eee);
-		//FIXME: more elegant trimming of spaces
-		for (int i = 3; i-->0; )
-			if (symbol[i] == ' ')
-				symbol[i] = 0;
-		Code code = atomCode(symbol);
-		if(code == Code(0))
-			error("MOL: unknown atom code: "+string(symbol));
+		auto white = find(symbol, symbol + 4, ' ');
+		if (white != symbol + 4)
+			*white = 0;
+		Code code(symbol);
 		tab.atoms[i] = AtomEntry(x, y, z, code);
 	}
 	tab.bounds = vector<BoundEntry>(bbb);
@@ -193,7 +190,7 @@ void writeMol(CTab& tab, ostream& out)
 	for (auto &e : tab.atoms)
 	{
 		writefln(out, "xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee",
-			e.x, e.y, e.z, atomSymbol(e.code), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+			e.x, e.y, e.z, e.code.symbol(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 	}
 	for (auto &e : tab.bounds)
 	{

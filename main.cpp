@@ -21,8 +21,8 @@ bio::stream<bio::null_sink> nullOstream((bio::null_sink()));
 
 int main(int argc, const char* argv[])
 {
-	bool plot = false, linear = false, help = false;
-	string descriptors=".";
+	bool plot = false, linear = false;
+	string descriptors;
 	vector<string> inputs;
 	po::options_description visible("Options");
 	visible.add_options()
@@ -43,11 +43,15 @@ int main(int argc, const char* argv[])
 	try{
 		po::store(po::command_line_parser(argc, argv)
 			.options(whole).positional(posOpt).run(), vars);
+		/*if (!vars.count("inputs") || vars.count("help"))
+		{
+			cout << visible << endl;
+			return 1;
+		}*/
 		inputs = vars["inputs"].as<vector<string>>();
-		help = vars["help"].as<bool>();
-		plot = vars["plot"].as<bool>();
-		linear = vars["linear"].as<bool>();
-		descriptors = vars["descriptors"].as<string>();
+		plot = vars.count("plot") ? vars["plot"].as<bool>() : false;
+		linear = vars.count("linear") ? vars["linear"].as<bool>() : false;
+		descriptors = vars.count("descriptors") ? vars["descriptors"].as<string>() : ".";
 	}
 	catch(const po::invalid_command_line_syntax &e) {
         switch (e.kind()) {
@@ -64,11 +68,7 @@ int main(int argc, const char* argv[])
         cout << "Unknown option '" << e.get_option_name() << "'\n";
         return 1;
     }
-    if(!inputs.size() || help)
-    {
-    	cout << visible << endl;
-		return 1;
-    }
+    
     fs::path base(descriptors);
     ifstream descr1((base / "descr1.csv").c_str());
     if(!descr1){
@@ -81,8 +81,10 @@ int main(int argc, const char* argv[])
 		return 1;
 	}
 	try{
-		auto order1 = read1stOrder(descr1);
-		auto order2 = read2ndOrder(descr2);
+		vector<LevelOne> order1;
+		vector<LevelTwo> order2;
+		read1stOrder(descr1, order1);
+		read2ndOrder(descr2, order2);
 		FCSP fcsp(move(order1), move(order2));
 		for(auto& arg : inputs)
 		{
