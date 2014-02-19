@@ -32,7 +32,7 @@ struct LevelTwo{
 	int dc;
 	LevelTwo(Code center_, int valence_, std::vector<Linked> linked, int dc_) :
 		center(center_), valence(valence_), bonds(linked), dc(dc_){}
-	bool operator<(const LevelOne& rhs) const
+	bool operator<(const LevelTwo& rhs) const
 	{
 		return center < rhs.center || (center == rhs.center && valence < rhs.valence);
 	}

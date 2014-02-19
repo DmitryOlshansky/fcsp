@@ -262,12 +262,42 @@ struct FCSP::Impl{
 			cout << "VALENCY " << valency << " for " << graph[*i].code.symbol() << endl;
 			LevelOne t(graph[*i].code, valency, 0);
 			auto range = equal_range(order1.begin(), order1.end(), t);
-			auto j = range.first;
-			for (; j != range.second; ++j)
+			for (auto j = range.first; j != range.second; ++j)
 			{
 				//out << *i << ": " << atomSymbol(j->second.center)
 				//		<< " DC:" << j->second.index << endl;
 				dcs.emplace_back(*i, j->dc);
+			}
+			auto range2 = make_pair(order2.begin(), order2.end());
+			
+			for (auto j = range2.first; j != range2.second; j++)
+			{
+				if (!j->center.matches(graph[*i].code.code()))
+					continue;
+				vector<bool> matched(j->bonds.size());
+				auto p = edges.first;
+				for (; p != edges.second; p++)
+				{
+					size_t k;
+					for (k = 0; k < j->bonds.size(); k++)
+					{
+						if (matched[k])
+							continue;
+						if (graph[*p].type != j->bonds[k].bondType)
+							continue;
+						auto v = target(*p, graph);
+						if (!j->bonds[k].atom.matches(graph[v].code.code()))
+							continue;
+						matched[k] = true;
+						break;
+					}
+					if (k == j->bonds.size())
+						break;
+				}
+				if (p == edges.second)
+				{
+					dcs.emplace_back(*i, j->dc);
+				}
 			}
 		}
 		out << endl;

@@ -77,10 +77,15 @@ void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 			stringstream str(s);
 			int dc;
 			str >> dc;
-			dest.emplace_back(c, valency, links, dc);
+			LevelTwo t(c, valency, links, dc);
+			auto lb = lower_bound(begin(dest), end(dest), t);
+			dest.insert(lb, t);
 		});
-		auto & e = dest.back();
-		cout << " ^^^ " << e.center.symbol() << " " << e.valence << "{ ";
+	}
+	
+	for (auto &e : dest)
+	{
+		cout << "^^^ " << e.center.symbol() << " " << e.valence << "{ ";
 		for (auto lnk : e.bonds)
 			cout << lnk.atom.symbol() << " ";
 		cout << "} DC: " << e.dc << endl;
