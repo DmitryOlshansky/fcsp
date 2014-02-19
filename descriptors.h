@@ -20,6 +20,9 @@ struct LevelOne{
 struct Linked{
 	Code atom;
 	int bondType;
+	Linked(){}
+	Linked(Code atom_, int bondType_):
+		atom(atom_), bondType(bondType_){}
 };
 
 struct LevelTwo{

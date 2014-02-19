@@ -100,5 +100,5 @@ bool Code::matches(int code)const
 
 const string& Code::symbol()const
 {
-	return index >= 0 ? atomList[index].symbol : wildList[-index + 1].symbol;
+	return index >= 0 ? atomList[index].symbol : wildList[-index - 1].symbol;
 }
