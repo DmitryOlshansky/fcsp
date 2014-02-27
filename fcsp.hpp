@@ -46,7 +46,7 @@ struct Replacement{
 		piece(std::move(g)), dc(dc_), coupling(coupling_)
 	{
 		auto asym = Code("A1");
-		auto bsym = Code("A1");
+		auto bsym = Code("A2");
 		auto r = vertices(piece);
 		for (auto i = r.first; i != r.second; i++)
 		{
@@ -68,7 +68,9 @@ struct FCSP {
 	FCSP(std::vector<LevelOne> first, std::vector<LevelTwo> second, std::vector<Replacement> replacements);
 	void load(std::istream& inp);
 	void dumpGraph(std::ostream& dot);
+	void locateDCs();
 	void linear(std::ostream& out);
+	void cyclic(std::ostream& out);
 	void replacement(std::ostream& out);
 	~FCSP();
 private:

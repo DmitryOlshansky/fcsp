@@ -218,7 +218,7 @@ struct FCSP::Impl{
 
 	void load(istream& inp)
 	{
-		tab = readMol(inp);
+		CTab tab = readMol(inp);
 		graph = toGraph(tab);
 	}
 
@@ -227,14 +227,14 @@ struct FCSP::Impl{
 		::dumpGraph(graph, out);
 	}
 
-	void linear(ostream& out)
+	void locateDCs()
 	{
+		//TODO: add implicit Hydrogen!!! (but only for FCSP molecule, not in toGraph)
+		dcs.clear();
 		using vd = ChemGraph::vertex_descriptor;
-		vector<pair<vd, int>> dcs;
 		auto vrtx = vertices(graph);
 		for (auto i = vrtx.first; i != vrtx.second; i++)
 		{
-			//TODO: pattern match 2nd order
 			auto edges = out_edges(*i, graph);
 			int valency = 0;
 			for (auto p = edges.first; p != edges.second; p++)
@@ -251,11 +251,16 @@ struct FCSP::Impl{
 				dcs.emplace_back(*i, j->dc);
 			}
 			auto range2 = make_pair(order2.begin(), order2.end());
-			
+
 			for (auto j = range2.first; j != range2.second; j++)
 			{
+				if (edges.second - edges.first != j->bonds.size())
+					continue;
 				if (!j->center.matches(graph[*i].code.code()))
 					continue;
+				cout << "Matched CENTER " << j->center.symbol() << endl;
+				//if (j->valence != valency)
+				//	continue;
 				vector<bool> matched(j->bonds.size());
 				auto p = edges.first;
 				for (; p != edges.second; p++)
@@ -270,6 +275,8 @@ struct FCSP::Impl{
 						auto v = target(*p, graph);
 						if (!j->bonds[k].atom.matches(graph[v].code.code()))
 							continue;
+						cout << "   matched " << j->bonds[k].atom.symbol()
+							<< " vs " << graph[v].code.symbol() << endl;
 						matched[k] = true;
 						break;
 					}
@@ -278,16 +285,25 @@ struct FCSP::Impl{
 				}
 				if (p == edges.second)
 				{
+					cout << "DONE." << endl;
 					dcs.emplace_back(*i, j->dc);
 				}
 			}
 		}
-		out << endl;
+		cout << endl;
 		sort(dcs.begin(), dcs.end(), [](const pair<vd, int>& a, const pair<vd, int>& b){
 			return a.second < b.second;
 		});
+		for (auto& dc : dcs)
+		{
+			cout << dc.second << endl;
+		}
+	}
 
-		queue<ChemGraph::vertex_descriptor> buf;
+	void linear(ostream& out)
+	{
+		using vd = ChemGraph::vertex_descriptor;
+		queue<vd> buf;
 		for (size_t i = 0; i < dcs.size(); i++)
 		for (size_t j = i  + 1; j < dcs.size(); j++)
 		{
@@ -321,12 +337,17 @@ struct FCSP::Impl{
 			vector<vector<pair<size_t, size_t>>> mappings;
 			auto& g = graph;
 			ullmann_all(r.piece, graph, [&r, &g](ChemGraph::vertex_descriptor a, ChemGraph::vertex_descriptor b){
-				return true; // r.piece[a].code.code() < 0 || r.piece[a].code == g[b].code.code();
+				return r.piece[a].code.matches(g[b].code.code());
 			}, [&r, &g](ChemGraph::edge_descriptor a, ChemGraph::edge_descriptor b){
 				return r.piece[a].type == g[b].type;
 			}, mappings);
-			if (!mappings.empty())
-				cout << "FOUND: " << r.dc << endl;
+			for (auto& m : mappings)
+			{
+				cout << setfill('0') << setw(2) << 0
+					<< setfill('0') << setw(2) << r.dc
+					<< setfill('0') << setw(2) << 0
+					<< r.coupling << endl;
+			}
 		}
 	}
 private:
@@ -334,7 +355,7 @@ private:
 	std::vector<LevelTwo> order2;
 	std::vector<Replacement> repls;
 	ChemGraph graph;
-	CTab tab;
+	vector<pair<ChemGraph::vertex_descriptor, int>> dcs;
 };
 
 FCSP::FCSP(std::vector<LevelOne> first, std::vector<LevelTwo> second, std::vector<Replacement> repls) :
@@ -345,9 +366,20 @@ void FCSP::load(std::istream& inp)
 	pimpl->load(inp);
 }
 
+
 void FCSP::dumpGraph(std::ostream& dot)
 {
 	pimpl->dumpGraph(dot);
+}
+
+void FCSP::locateDCs()
+{
+	pimpl->locateDCs();
+}
+
+void FCSP::cyclic(std::ostream& out)
+{
+	pimpl->cyclic(out);
 }
 
 void FCSP::replacement(ostream& out)

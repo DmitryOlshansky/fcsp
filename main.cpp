@@ -35,16 +35,13 @@ void readReplacements(ifstream& inp, vector<Replacement>& repls)
 
 int main(int argc, const char* argv[])
 {
-	bool plot = false, linear = false, cyclic = false, replace = false;
+	bool plot = false;
 	string descriptors;
 	vector<string> inputs;
 	po::options_description visible("Options");
 	visible.add_options()
-		("cyclic,c", po::bool_switch(), "Dump cyclic FCSP descriptors.")
 		("help,h", po::bool_switch(), "Show help message.")
 		("plot,p", po::bool_switch(), "Dump Graph-viz dot of molecule.")
-		("linear,l", po::bool_switch(), "Dump linear FCSP descriptors.")
-		("replacement,r", po::bool_switch(), "Dump replacements FCSP descriptors.")
 		("descriptors,d", po::value<string>(), "Directory with descriptor lists.")
 		;
 	po::options_description implicit("Implicit options");
@@ -59,15 +56,13 @@ int main(int argc, const char* argv[])
 	try{
 		po::store(po::command_line_parser(argc, argv)
 			.options(whole).positional(posOpt).run(), vars);
-		if (!vars.count("inputs") /*|| vars.count("help")*/)
+		if (!vars.count("inputs"))
 		{
 			cout << visible << endl;
 			return 1;
 		}
 		inputs = vars["inputs"].as<vector<string>>();
 		plot = vars.count("plot") ? vars["plot"].as<bool>() : false;
-		linear = vars.count("linear") ? vars["linear"].as<bool>() : false;
-		replace = vars.count("replacement") ? vars["replacement"].as<bool>() : false;
 		descriptors = vars.count("descriptors") ? vars["descriptors"].as<string>() : ".";
 	}
 	catch(const po::invalid_command_line_syntax &e) {
@@ -119,10 +114,9 @@ int main(int argc, const char* argv[])
 					ofstream dot(arg+".dot");
 					fcsp.dumpGraph(dot);
 				}
-				if (linear)
-					fcsp.linear(cout);
-				if (replace)
-					fcsp.replacement(cout);
+				fcsp.locateDCs();
+				fcsp.linear(cout);
+				fcsp.replacement(cout);
 			}
 			catch(std::exception &e)
 			{
