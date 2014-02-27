@@ -6,12 +6,7 @@
  */
 #include <algorithm>
 #include <iomanip>
-#include <boost/graph/adjacency_list.hpp>
-#include <boost/graph/depth_first_search.hpp>
-#include <boost/graph/breadth_first_search.hpp>
-#include <boost/graph/visitors.hpp>
-#include <boost/graph/graphviz.hpp>
-
+#include "ullmann.h"
 #include "fcsp.hpp"
 #include "ctab.h"
 #include "descriptors.h"
@@ -33,24 +28,6 @@ inline bool couplingLink(int type)
 	return type != 1; // not a single link - aromatic or double, triple
 }
 
-struct Atom{
-	double x,y,z;
-	Code code;
-	default_color_type color; //used by DFS algorithm
-	int path;
-	bool inCycle; //part of cycle
-	Atom(){}
-	Atom(double x_, double y_, double z_, Code code_):
-		x(x_), y(y_), z(z_), code(code_), path(0){}
-};
-
-struct Bound{
-	int type; //
-	Bound(){}
-	Bound(int type_):type(type_){}
-};
-
-typedef adjacency_list<vecS, vecS, undirectedS, Atom, Bound> ChemGraph;
 
 struct markLoops : public dfs_visitor<>{
 	vector<pair<int,int>> path;
@@ -230,9 +207,14 @@ private:
 	ChemGraph& g;
 };
 
+void dumpGraph(ChemGraph& graph, ostream& out)
+{
+	write_graphviz(out, graph, CodeWriter(graph));
+}
+
 struct FCSP::Impl{
-	Impl(std::vector<LevelOne> f, std::vector<LevelTwo> s) :
-		order1(std::move(f)), order2(std::move(s)){}
+	Impl(std::vector<LevelOne> f, std::vector<LevelTwo> s, std::vector<Replacement> r) :
+		order1(std::move(f)), order2(std::move(s)), repls(std::move(r)){}
 
 	void load(istream& inp)
 	{
@@ -242,7 +224,7 @@ struct FCSP::Impl{
 
 	void dumpGraph(ostream& out)
 	{
-		write_graphviz(out, graph, CodeWriter(graph));
+		::dumpGraph(graph, out);
 	}
 
 	void linear(ostream& out)
@@ -330,15 +312,33 @@ struct FCSP::Impl{
 	{
 
 	}
+
+	void replacement(ostream& out)
+	{
+		//cout << "REPLACEMENTS!" << endl;
+		for (auto& r : repls)
+		{
+			vector<vector<pair<size_t, size_t>>> mappings;
+			auto& g = graph;
+			ullmann_all(r.piece, graph, [&r, &g](ChemGraph::vertex_descriptor a, ChemGraph::vertex_descriptor b){
+				return true; // r.piece[a].code.code() < 0 || r.piece[a].code == g[b].code.code();
+			}, [&r, &g](ChemGraph::edge_descriptor a, ChemGraph::edge_descriptor b){
+				return r.piece[a].type == g[b].type;
+			}, mappings);
+			if (!mappings.empty())
+				cout << "FOUND: " << r.dc << endl;
+		}
+	}
 private:
 	std::vector<LevelOne> order1;
 	std::vector<LevelTwo> order2;
+	std::vector<Replacement> repls;
 	ChemGraph graph;
 	CTab tab;
 };
 
-FCSP::FCSP(std::vector<LevelOne> first, std::vector<LevelTwo> second) :
-	pimpl(new FCSP::Impl(std::move(first), std::move(second))){}
+FCSP::FCSP(std::vector<LevelOne> first, std::vector<LevelTwo> second, std::vector<Replacement> repls) :
+	pimpl(new FCSP::Impl(std::move(first), std::move(second), std::move(repls))){}
 
 void FCSP::load(std::istream& inp)
 {
@@ -348,6 +348,11 @@ void FCSP::load(std::istream& inp)
 void FCSP::dumpGraph(std::ostream& dot)
 {
 	pimpl->dumpGraph(dot);
+}
+
+void FCSP::replacement(ostream& out)
+{
+	pimpl->replacement(out);
 }
 
 void FCSP::linear(std::ostream& out)
