@@ -100,6 +100,23 @@ ChemGraph toGraph(CTab& tab)
 	return graph;
 }
 
+void addHydrogen(CTab& tab, ChemGraph& graph)
+{	
+	/*auto c = Code("C");
+	auto h = Code("H");
+	auto& atoms = tab.atoms;
+	for (size_t i = 0; i < atoms.size(); i++)
+	{
+		
+			//for (int k = 0; k < atoms[i].implicitH; k++)
+			{
+				auto j = add_vertex(Atom(0.0, 0.0, 0.0, h), graph);
+				add_edge(j, i, Bound(1), graph);
+			}
+		}
+	}*/
+}
+
 void processCycles(ChemGraph& graph)
 {
 	vector<vector<pair<int, int>>> cycles;
@@ -212,6 +229,17 @@ void dumpGraph(ChemGraph& graph, ostream& out)
 	write_graphviz(out, graph, CodeWriter(graph));
 }
 
+int getValence(ChemGraph& graph, ChemGraph::vertex_descriptor vertex)
+{
+	auto edges = out_edges(vertex, graph);
+	int valence = 0;
+	for (auto p = edges.first; p != edges.second; p++)
+	{
+		valence += graph[*p].type;
+	}
+	return valence;
+}
+
 struct FCSP::Impl{
 	Impl(std::vector<LevelOne> f, std::vector<LevelTwo> s, std::vector<Replacement> r) :
 		order1(std::move(f)), order2(std::move(s)), repls(std::move(r)){}
@@ -220,6 +248,7 @@ struct FCSP::Impl{
 	{
 		CTab tab = readMol(inp);
 		graph = toGraph(tab);
+		addHydrogen(tab, graph);
 	}
 
 	void dumpGraph(ostream& out)
@@ -329,6 +358,32 @@ struct FCSP::Impl{
 
 	}
 
+	//find where repPos is mapped in mapping m
+	int mapVertex(size_t repPos, const vector<pair<size_t, size_t>>& m)
+	{
+		//locate mapping of 1st DC
+		auto dcVIt = find_if(m.begin(), m.end(), [repPos](const pair<size_t, size_t>& p){
+			return p.first == repPos;
+		});
+		assert(dcVIt != m.end()); // mapping must include it
+		return dcVIt->second;
+	}
+
+	// -1 if no descriptor present (just some non-H atom)
+	int mapDC(size_t dcV)
+	{
+		auto dcIt = find_if(dcs.begin(), dcs.end(), [dcV](const pair<size_t, int> & p){
+			return p.first == dcV;
+		});
+		if (dcIt == dcs.end())
+		{
+			//debug warning
+			cerr << "Mapped replacement but first DC has no match" << endl;
+			return -1;
+		}
+		return dcIt->second;
+	}
+
 	void replacement(ostream& out)
 	{
 		//cout << "REPLACEMENTS!" << endl;
@@ -341,11 +396,29 @@ struct FCSP::Impl{
 			}, [&r, &g](ChemGraph::edge_descriptor a, ChemGraph::edge_descriptor b){
 				return r.piece[a].type == g[b].type;
 			}, mappings);
+			vector<pair<size_t, size_t>> used_pairs;
 			for (auto& m : mappings)
 			{
-				cout << setfill('0') << setw(2) << 0
+				int fV = mapVertex(r.a1, m);
+				int sV = mapVertex(r.a2, m);
+				// check if this pair of vertices was used before
+				if (used_pairs.end() != find_if(used_pairs.begin(), used_pairs.end(), [fV, sV](const pair<size_t, size_t>& p){
+					return (p.first == fV && p.second == sV) || (p.first == sV && p.second == fV);
+				}))
+					continue;
+				int fdc = mapDC(fV);
+				if (fdc < 0)
+					continue;
+				int sdc = mapDC(sV);
+				if (sdc < 0)
+					continue;
+				used_pairs.emplace_back(fV, sV);
+				// the usual rule of smaller DC first
+				if (fdc > sdc)
+					swap(fdc, sdc);
+				cout << setfill('0') << setw(2) << fdc
 					<< setfill('0') << setw(2) << r.dc
-					<< setfill('0') << setw(2) << 0
+					<< setfill('0') << setw(2) << sdc
 					<< r.coupling << endl;
 			}
 		}

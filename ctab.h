@@ -19,7 +19,7 @@ struct AtomEntry{
 	double x,y,z;
 	Code code;
 	AtomEntry(){}
-	AtomEntry(double x_, double y_, double z_, Code code_):
+	AtomEntry(double x_, double y_, double z_, int h, Code code_):
 		x(x_), y(y_), z(z_), code(code_){}
 };
 

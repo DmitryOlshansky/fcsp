@@ -104,7 +104,7 @@ CTab readMol(Parser& parser)
 		if (white != symbol + 4)
 			*white = 0;
 		Code code(symbol);
-		tab.atoms[i] = AtomEntry(x, y, z, code);
+		tab.atoms[i] = AtomEntry(x, y, z, hhh, code);
 	}
 	tab.bounds = vector<BoundEntry>(bbb);
 	for(int i=0; i<bbb; i++)
