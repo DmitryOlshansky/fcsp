@@ -42,7 +42,7 @@ int main(int argc, const char* argv[])
 	visible.add_options()
 		("help,h", po::bool_switch(), "Show help message.")
 		("plot,p", po::bool_switch(), "Dump Graph-viz dot of molecule.")
-		("descriptors,d", po::value<string>(), "Directory with descriptor lists.")
+		("descriptors,d", po::value<string>(), "Directory with descriptor database files.")
 		;
 	po::options_description implicit("Implicit options");
 	implicit.add_options()
@@ -114,9 +114,7 @@ int main(int argc, const char* argv[])
 					ofstream dot(arg+".dot");
 					fcsp.dumpGraph(dot);
 				}
-				fcsp.locateDCs();
-				fcsp.linear(cout);
-				fcsp.replacement(cout);
+				fcsp.process(cout);
 			}
 			catch(std::exception &e)
 			{

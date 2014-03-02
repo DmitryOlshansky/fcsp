@@ -6,6 +6,7 @@
  */
 #include <algorithm>
 #include <iomanip>
+#include <set>
 #include "ullmann.h"
 #include "fcsp.hpp"
 #include "ctab.h"
@@ -76,12 +77,14 @@ struct markLoops : public dfs_visitor<>{
 	}
 };
 
-bool edge_less(pair<int, int> lhs, pair<int, int> rhs)
+struct edge_less
 {
-	return lhs.first == rhs.first ?
-		lhs.second < rhs.second : lhs.first < rhs.first;
-}
-
+	bool operator()(pair<int, int> lhs, pair<int, int> rhs)
+	{
+		return lhs.first < rhs.first ||
+			(lhs.first == rhs.first && lhs.second < rhs.second);
+	}
+};
 
 ChemGraph toGraph(CTab& tab)
 {
@@ -115,73 +118,6 @@ void addHydrogen(CTab& tab, ChemGraph& graph)
 			}
 		}
 	}*/
-}
-
-void processCycles(ChemGraph& graph)
-{
-	vector<vector<pair<int, int>>> cycles;
-	depth_first_search(graph, markLoops(cycles), get(&Atom::color, graph));
-	for (size_t i = 0; i < cycles.size(); i++)
-	for (size_t j = i + 1; j < cycles.size(); j++)
-	{
-		//split cycles (XOR)
-		//pick pick the shortest two of (c1, c2, c1 XOR c2)
-		auto& c1 = cycles[i];
-		auto& c2 = cycles[j];
-		for (auto p = c1.begin(); p != c1.end(); p++)
-		{
-			auto q = find(c2.begin(), c2.end(), *p);
-			if (q != c2.end()) // c1[p] is found in c2 at it
-			{
-				//compute maximum length of overlap
-				auto len = min(c2.end() - q, c1.end() - p);
-				//get iterators up to the first non-matching edge
-				auto m = mismatch(p, p + len, q);
-				//c1[p..m.second] and c2[it..m.first]
-				assert(m.first - p == m.second - q);
-				len = m.first - p;
-				auto lc1 = c1.size() - len;
-				auto lc2 = c2.size() - len;
-				cout << "C1: " << c1.size() << ", C2: " << c2.size() << ", C1 ^ C2: " << lc1 + lc2 << endl;
-				if (c1.size() > c2.size())
-				{
-					if (c1.size() > lc1 + lc2)
-					{
-						//kill intersection
-						auto pos = p - c1.begin();
-						c1.erase(p, p + len);
-						//reserve space for lc2
-						c1.insert(c1.begin() + pos, lc2, pair<int, int>(-1, -1));
-						p = c1.begin() + pos;
-						p = reverse_copy(c2.begin(), q, p);
-						reverse_copy(q + len, c2.end(), p);
-					}
-					//no split XOR cycle is the smalest
-				}
-				else
-				{
-					//c2 >= c1
-					if (c2.size() > lc1 + lc2)
-					{
-						//split c2
-						//kill intersection
-						auto pos = q - c2.begin();
-						c2.erase(q, q + len);
-						//reserve space for lc2
-						c2.insert(c2.begin() + pos, lc1, pair<int, int>(-1, -1));
-						q = c2.begin() + pos;
-						q = reverse_copy(c1.begin(), p, q);
-						reverse_copy(p + len, c1.end(), q);
-
-					}
-					//no split XOR cycle is the smalest
-				}
-				break;
-			}
-		}
-	}
-	cout << "AFTER SPLIT" << endl;
-	for_each(cycles.begin(), cycles.end(), &printCycle);
 }
 
 struct TrackPath: public default_bfs_visitor {
@@ -248,7 +184,17 @@ struct FCSP::Impl{
 	{
 		CTab tab = readMol(inp);
 		graph = toGraph(tab);
+		//TODO: add implicit Hydrogen!!! (but only for FCSP molecule, not in toGraph)
 		addHydrogen(tab, graph);
+	}
+
+	void process(ostream& out)
+	{
+		locateDCs();
+		locateCycles();
+		linear(out);
+		cyclic(out);
+		replacement(out);
 	}
 
 	void dumpGraph(ostream& out)
@@ -258,7 +204,6 @@ struct FCSP::Impl{
 
 	void locateDCs()
 	{
-		//TODO: add implicit Hydrogen!!! (but only for FCSP molecule, not in toGraph)
 		dcs.clear();
 		using vd = ChemGraph::vertex_descriptor;
 		auto vrtx = vertices(graph);
@@ -288,8 +233,8 @@ struct FCSP::Impl{
 				if (!j->center.matches(graph[*i].code.code()))
 					continue;
 				cout << "Matched CENTER " << j->center.symbol() << endl;
-				//if (j->valence != valency)
-				//	continue;
+				if (j->valence != valency)
+					continue;
 				vector<bool> matched(j->bonds.size());
 				auto p = edges.first;
 				for (; p != edges.second; p++)
@@ -329,6 +274,63 @@ struct FCSP::Impl{
 		}
 	}
 
+	void locateCycles()
+	{
+		cycles.clear();
+		depth_first_search(graph, markLoops(cycles), get(&Atom::color, graph));
+		for (auto & c : cycles)
+		{
+			sort(c.begin(), c.end(), edge_less());
+		}
+		cout << "BEFORE SPLIT" << endl;
+		for_each(cycles.begin(), cycles.end(), &printCycle);
+		vector<pair<int, int>> t, uc, xc;
+		//TODO: need some solid proof and potentially incorrect in complex cases:
+		// what happens after 2 cycles are replaced with XOR or U of original pair?
+		for (size_t i = 0; i < cycles.size(); i++)
+		for (size_t j = i + 1; j < cycles.size(); j++)
+		{
+			auto& c1 = cycles[i];
+			auto& c2 = cycles[j];
+			t.resize(min(c1.size(), c2.size()));
+			auto tend = set_intersection(c1.begin(), c1.end(), c2.begin(), c2.end(), t.begin(), edge_less());
+			if (t.begin() == tend) // empty intersection
+				continue;
+			uc.resize(c1.size() + c2.size());
+			xc.resize(c1.size() + c2.size());
+			auto ucend = set_union(c1.begin(), c1.end(), c2.begin(), c2.end(), uc.begin(), edge_less());
+			auto xcend = set_symmetric_difference(c1.begin(), c1.end(), c2.begin(), c2.end(), xc.begin(), edge_less());
+			uc.resize(ucend - uc.begin());
+			xc.resize(xcend - xc.begin());
+			size_t len1 = c1.size(), len2 = c2.size();
+			size_t lenU = uc.size(), lenX = xc.size();
+			pair<size_t, vector<pair<int, int>>*> result[4];
+			result[0] = make_pair(len1, &c1);
+			result[1] = make_pair(len2, &c2);
+			result[2] = make_pair(lenU, &uc);
+			result[3] = make_pair(lenX, &xc);
+			for (int k = 0; k < 4; k++)
+			{
+				cout << result[k].first << " ";
+			}
+			cout << endl;
+			sort(result, result + 4, [](pair<size_t, vector<pair<int, int>>*> a, pair<size_t, vector<pair<int, int>>*> b){
+				return a.first < b.first;
+			});
+
+			if ((&c1 == result[0].second && &c2 == result[1].second) ||
+				(&c1 == result[1].second && &c2 == result[0].second))
+				continue; //same cycles have won
+			auto n1 = *result[1].second;
+			auto n2 = *result[0].second;
+			cout << n1.size() << " " << n2.size() << endl;
+			c1 = n1;
+			c2 = n2;
+		}
+		cout << "AFTER SPLIT" << endl;
+		for_each(cycles.begin(), cycles.end(), &printCycle);
+	}
+
 	void linear(ostream& out)
 	{
 		using vd = ChemGraph::vertex_descriptor;
@@ -340,7 +342,8 @@ struct FCSP::Impl{
 			breadth_first_search(graph, dcs[j].first, buf,
 					TrackPath(graph, dcs[i].first, coupled), get(&Atom::color, graph));
 			auto vtx = vertices(graph);
-			if(graph[dcs[i].first].path){ // not zero - connected
+			if(graph[dcs[i].first].path)
+			{ // not zero - connected
 				/*{
 					for (auto i = vtx.first; i != vtx.second; i++)
 						cout << *i << ": " << graph[*i].path << endl;
@@ -423,12 +426,17 @@ struct FCSP::Impl{
 			}
 		}
 	}
+
 private:
 	std::vector<LevelOne> order1;
 	std::vector<LevelTwo> order2;
 	std::vector<Replacement> repls;
+	typedef set<pair<int, int>, edge_less> Cycle;
 	ChemGraph graph;
+	//location of DCs in 'graph' and their numeric value
 	vector<pair<ChemGraph::vertex_descriptor, int>> dcs;
+	//sorted arrays of edges - cycles
+	vector<vector<pair<int, int>>> cycles;
 };
 
 FCSP::FCSP(std::vector<LevelOne> first, std::vector<LevelTwo> second, std::vector<Replacement> repls) :
@@ -445,24 +453,9 @@ void FCSP::dumpGraph(std::ostream& dot)
 	pimpl->dumpGraph(dot);
 }
 
-void FCSP::locateDCs()
+void FCSP::process(std::ostream& out)
 {
-	pimpl->locateDCs();
-}
-
-void FCSP::cyclic(std::ostream& out)
-{
-	pimpl->cyclic(out);
-}
-
-void FCSP::replacement(ostream& out)
-{
-	pimpl->replacement(out);
-}
-
-void FCSP::linear(std::ostream& out)
-{
-	pimpl->linear(out);
+	pimpl->process(out);
 }
 
 FCSP::~FCSP(){}

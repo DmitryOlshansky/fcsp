@@ -68,10 +68,7 @@ struct FCSP {
 	FCSP(std::vector<LevelOne> first, std::vector<LevelTwo> second, std::vector<Replacement> replacements);
 	void load(std::istream& inp);
 	void dumpGraph(std::ostream& dot);
-	void locateDCs();
-	void linear(std::ostream& out);
-	void cyclic(std::ostream& out);
-	void replacement(std::ostream& out);
+	void process(std::ostream& out);
 	~FCSP();
 private:
 	struct Impl;
