@@ -16,6 +16,8 @@ enum { NON_PASSABLE = 10000 };
 using namespace std;
 using namespace boost;
 
+using vd = ChemGraph::vertex_descriptor;
+
 void printCycle(vector<pair<int, int>>& v)
 {
 	for (auto & e : v)
@@ -122,17 +124,14 @@ void addHydrogen(CTab& tab, ChemGraph& graph)
 
 struct TrackPath: public default_bfs_visitor {
 	ChemGraph& g;
-	bool& coupled;
-	ChemGraph::vertex_descriptor tgt;
-	TrackPath(ChemGraph& graph, ChemGraph::vertex_descriptor t, bool& c):
-		g(graph), coupled(c), tgt(t){ coupled = false; }
+	ChemGraph::vertex_descriptor start, tgt;
+	TrackPath(ChemGraph& graph, ChemGraph::vertex_descriptor s, ChemGraph::vertex_descriptor t) :
+		g(graph), start(s), tgt(t){ }
 
 	template<typename Vertex>
 	void initialize_vertex(Vertex v, const ChemGraph&) const
 	{
 		//auto a = target(e, g);
-		if (g[v].code != C)
-			g[v].color = default_color_type::black_color;
 		g[v].path = 0;
 	}
 
@@ -141,11 +140,12 @@ struct TrackPath: public default_bfs_visitor {
 	{
 		auto d = target(e, g);
 		auto s = source(e, g);
-		if(couplingLink(g[e].type)){
-			coupled = true;
-		}
 		//cout << s << "-->" << d << endl;
-		if (g[s].inAromaCycle) //all paths out of aromatic cycle  are inpassable
+		if (g[d].inAromaCycle && d != tgt) //all paths  of aromatic cycle  are inpassable
+			g[d].path = NON_PASSABLE;
+		else if (g[d].inAromaCycle && g[s].inAromaCycle)
+			g[d].path = NON_PASSABLE;
+		else if (g[d].code != C && d != tgt)
 			g[d].path = NON_PASSABLE;
 		else
 			g[d].path = g[s].path + 1;
@@ -227,12 +227,14 @@ struct FCSP::Impl{
 		for (auto i = vrtx.first; i != vrtx.second; i++)
 		{
 			auto edges = out_edges(*i, graph);
-			int valency = 0;
-			for (auto p = edges.first; p != edges.second; p++)
-			{
-				valency += graph[*p].type;
-			}
+			//pre-calculate per-atom properties
+			int valency = getValence(graph, *i);
+			graph[*i].valence = valency;
+			auto dual_tripple = multiCount(graph, *i);
+			int piE = countPiElectrons(graph[*i].code, valency, dual_tripple.first, dual_tripple.second);
+			graph[*i].piE = piE > 0 ? piE : 0;
 			cout << "VALENCY " << valency << " for " << graph[*i].code.symbol() << endl;
+
 			LevelOne t(graph[*i].code, valency, 0);
 			auto range = equal_range(order1.begin(), order1.end(), t);
 			for (auto j = range.first; j != range.second; ++j)
@@ -396,13 +398,9 @@ struct FCSP::Impl{
 			auto& g = graph;
 			int piEl = 0;
 			for_each(vc.begin(), vc.end(), [&g, &piEl](int n){
-				int val = getValence(g, n);
-				auto dual_tripple = multiCount(g, n);
-				cout << "Valence " << val << " Count x2 " << dual_tripple.first << " count x3 " << dual_tripple.second << endl;
-				int piE = countPiElectrons(g[n].code, val, dual_tripple.first, dual_tripple.second);
-				cout << "Atom # " << n << " " << g[n].code.symbol() << " pi E = " << piE << endl;
-				if (piE > 0)
-					piEl += piE;
+				cout << "Atom # " << n << " " << g[n].code.symbol() << " pi E = " << g[n].piE << endl;
+				if (g[n].piE > 0)
+					piEl += g[n].piE;
 				//TODO: add debug trace for < 0
 			});
 			bool aromatic = ((piEl - 2) % 4 == 0);
@@ -448,28 +446,59 @@ struct FCSP::Impl{
 		cout << "DCs:" << endl;
 		for (auto& dc : dcs)
 		{
-			cout << dc.second << endl;
+			cout << dc.first << " -DC-> " << dc.second << endl;
 		}
 		cout << endl;
 	}
 
+	template<class Fn>
+	void applyPath(vd start, vd end, Fn&& fn)
+	{
+		vd current = end;
+		fn(current);
+		while (current != start)
+		{
+			//cout << graph[current].path << " -->" << endl;
+			auto nearby = adjacent_vertices(current, graph);
+			auto i = nearby.first;
+			for (; i != nearby.second; i++)
+			{
+				//cout << graph[*i].path << ".." ;
+				if (graph[*i].path == graph[current].path - 1)
+				{
+					current = *i;
+					fn(current);
+					break;
+				}
+			}
+			if (i == nearby.second)
+				break;
+		}
+	}
+
 	void linear(ostream& out)
 	{
-		using vd = ChemGraph::vertex_descriptor;
+		
 		queue<vd> buf;
 		for (size_t i = 0; i < dcs.size(); i++)
 		for (size_t j = i  + 1; j < dcs.size(); j++)
 		{
-			bool coupled = false;
-			breadth_first_search(graph, dcs[j].first, buf,
-					TrackPath(graph, dcs[i].first, coupled), get(&Atom::color, graph));
-			auto vtx = vertices(graph);
+			vd start = dcs[j].first;
+			vd end = dcs[i].first;
+			breadth_first_search(graph, start, buf,
+				TrackPath(graph, start, end), get(&Atom::color, graph));
+			
 			if (graph[dcs[i].first].path && graph[dcs[i].first].path < NON_PASSABLE)
-			{ // not zero - connected
-				/*{
-					for (auto i = vtx.first; i != vtx.second; i++)
-						cout << *i << ": " << graph[*i].path << endl;
-				}*/
+			{
+				bool coupled = false;
+				auto &g = graph;
+				
+				applyPath(start, end, [g, &coupled](vd v){
+					//cout << "Apply: " << g[v].code.symbol() << endl;
+					if (g[v].code.matches(C) && g[v].piE > 0)
+						coupled = true;
+
+				});
 				out << setfill('0') << setw(2) << dcs[i].second
 					<< setfill('0') << setw(2) << graph[dcs[i].first].path - 1
 					<< setfill('0') << setw(2) << dcs[j].second
