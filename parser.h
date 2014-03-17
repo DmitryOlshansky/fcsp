@@ -142,14 +142,15 @@ private:
 	string readUpTo(char delim)
 	{
 		string line;
-		while (front() != delim)
+		while (!eof() && front() != delim)
 		{
 			line.push_back(front());
 			next();
 		}
 		if (delim == '\n')
 			lineCnt++;
-		next();
+		if (!eof())
+			next();
 		return line;
 	}
 

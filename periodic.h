@@ -5,6 +5,60 @@ enum {
 //predefined
 	H = 0,
 	C = 1,
+	Li,
+	Be,
+	B,
+	N,
+	O,
+	F,
+	Na,
+	Mg,
+	Al,
+	Si,
+	P,
+	S,
+	Cl,
+	K,
+	Ca,
+	Sc,
+	Ti,
+	V,
+	Cr,
+	Mn,
+	Fe,
+	Co,
+	Ni,
+	Cu,
+	Zn,
+	Ga,
+	Ge,
+	As,
+	Se,
+	Br,
+	Rb,
+	Sr,
+	Y,
+	Zr,
+	Nb,
+	Mo,
+	Tc,
+	Ru,
+	Rh,
+	Pb,
+	Ag,
+	Cd,
+	In,
+	Sn,
+	Sb,
+	Te,
+	I,
+	Ba,
+	W,
+	Pt,
+	Au,
+	Hg,
+	Tl,
+	Bi,
 //wild cards
 	Z = -1, //anything
 	R = -2, //anything but H
@@ -34,6 +88,8 @@ public:
 private:
 	int index; //index or wild-card
 };
+
+int countPiElectrons(Code c, int valence, int dualCnt, int tripleCnt);
 
 namespace std {
 	template <> struct hash<Code>

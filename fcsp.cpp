@@ -12,6 +12,7 @@
 #include "ctab.h"
 #include "descriptors.h"
 
+enum { NON_PASSABLE = 10000 };
 using namespace std;
 using namespace boost;
 
@@ -28,7 +29,6 @@ inline bool couplingLink(int type)
 {
 	return type != 1; // not a single link - aromatic or double, triple
 }
-
 
 struct markLoops : public dfs_visitor<>{
 	vector<pair<int,int>> path;
@@ -145,7 +145,10 @@ struct TrackPath: public default_bfs_visitor {
 			coupled = true;
 		}
 		//cout << s << "-->" << d << endl;
-		g[d].path = g[s].path + 1;
+		if (g[s].inAromaCycle) //all paths out of aromatic cycle  are inpassable
+			g[d].path = NON_PASSABLE;
+		else
+			g[d].path = g[s].path + 1;
 	}
 };
 
@@ -174,6 +177,20 @@ int getValence(ChemGraph& graph, ChemGraph::vertex_descriptor vertex)
 		valence += graph[*p].type;
 	}
 	return valence;
+}
+
+pair<int,int> multiCount(ChemGraph& graph, ChemGraph::vertex_descriptor vertex)
+{
+	auto edges = out_edges(vertex, graph);
+	int dual = 0, tripple = 0;
+	for (auto p = edges.first; p != edges.second; p++)
+	{
+		if (graph[*p].type == 2)
+			dual++;
+		else if (graph[*p].type == 3)
+			tripple++;
+	}
+	return make_pair(dual, tripple);
 }
 
 struct FCSP::Impl{
@@ -265,13 +282,31 @@ struct FCSP::Impl{
 			}
 		}
 		cout << endl;
-		sort(dcs.begin(), dcs.end(), [](const pair<vd, int>& a, const pair<vd, int>& b){
-			return a.second < b.second;
-		});
-		for (auto& dc : dcs)
+	}
+
+	static set<int> cycleToVertices(const vector<pair<int, int>>& cycle)
+	{
+		set<int> vertices;
+		for (auto e : cycle)
 		{
-			cout << dc.second << endl;
+			vertices.insert(e.first);
+			vertices.insert(e.second);
 		}
+		return vertices;
+	}
+
+	static int chainAt(const vector<int>& chain, int idx)
+	{
+		if (idx < 0)
+			idx += (int)chain.size();
+		if (idx >(int)chain.size())
+			idx -= (int)chain.size();
+		return idx;
+	}
+
+	static bool heteroatom(const Atom& atom)
+	{
+		return !atom.code.matches(C) && !atom.code.matches(H);
 	}
 
 	void locateCycles()
@@ -328,7 +363,94 @@ struct FCSP::Impl{
 			c2 = n2;
 		}
 		cout << "AFTER SPLIT" << endl;
-		for_each(cycles.begin(), cycles.end(), &printCycle);
+		for (auto ic : cycles)
+		{
+			assert(ic.size() > 2);
+			vector<int> vc;
+			vc.push_back(ic.front().first);
+			vc.push_back(ic.front().second);
+			while (vc.front() != vc.back())
+			{
+				for (auto p : ic)
+				{
+					//has common vertex with back of chain and not == second one
+					if (p.first == vc.back() && p.second != vc[vc.size()-2])
+						vc.push_back(p.second);
+					else if (p.second == vc.back() && p.first != vc[vc.size()-2])
+						vc.push_back(p.first);
+					//has common vertex with front of chain and not == second one
+					else if(p.first == vc[0] && p.second != vc[1])
+						vc.insert(vc.begin(), p.second);
+					else if (p.second == vc[0] && p.first != vc[1])
+						vc.insert(vc.begin(), p.first);
+					else
+						continue;
+					break;
+				}
+			}
+			vc.pop_back();
+			cout << "CHAIN: ";
+			for (int k : vc)
+				cout << k << " - ";
+			cout << endl;
+			auto& g = graph;
+			int piEl = 0;
+			for_each(vc.begin(), vc.end(), [&g, &piEl](int n){
+				int val = getValence(g, n);
+				auto dual_tripple = multiCount(g, n);
+				cout << "Valence " << val << " Count x2 " << dual_tripple.first << " count x3 " << dual_tripple.second << endl;
+				int piE = countPiElectrons(g[n].code, val, dual_tripple.first, dual_tripple.second);
+				cout << "Atom # " << n << " " << g[n].code.symbol() << " pi E = " << piE << endl;
+				if (piE > 0)
+					piEl += piE;
+				//TODO: add debug trace for < 0
+			});
+			bool aromatic = ((piEl - 2) % 4 == 0);
+			cout << "PI E " << piEl << " aromatic? : " << aromatic << endl;
+			//assign cyclic-only DC
+			if (aromatic)
+			{
+				for (auto n : vc)
+				{
+					g[n].inAromaCycle = true;
+					//any atom in aromatic cycle
+					dcs.emplace_back(n, 33);
+					//hetero-atom in aromatic cycle - DC 34
+					if (!g[n].code.matches(C))
+						dcs.emplace_back(n, 34);
+					auto idx = find(vc.begin(), vc.end(), n) - vc.begin();
+					assert(idx < vc.size());
+					if (heteroatom(graph[chainAt(vc, idx - 1)])
+						|| heteroatom(graph[chainAt(vc, idx + 1)]))
+					{
+						dcs.emplace_back(n, 35);
+					}
+					else if (heteroatom(graph[chainAt(vc, idx - 2)])
+						|| heteroatom(graph[chainAt(vc, idx + 2)]))
+					{
+						dcs.emplace_back(n, 36);
+					}
+					else if (heteroatom(graph[chainAt(vc, idx - 3)])
+						|| heteroatom(graph[chainAt(vc, idx + 3)]))
+					{
+						dcs.emplace_back(n, 37);
+					}
+					//TODO: DC 40 - need reference table of valence, to test charged atoms
+				}
+			}
+			using std::move;
+			chains.push_back(move(vc));
+		}
+		typedef ChemGraph::vertex_descriptor vd;
+		sort(dcs.begin(), dcs.end(), [](const pair<vd, int>& a, const pair<vd, int>& b){
+			return a.second < b.second;
+		});
+		cout << "DCs:" << endl;
+		for (auto& dc : dcs)
+		{
+			cout << dc.second << endl;
+		}
+		cout << endl;
 	}
 
 	void linear(ostream& out)
@@ -342,7 +464,7 @@ struct FCSP::Impl{
 			breadth_first_search(graph, dcs[j].first, buf,
 					TrackPath(graph, dcs[i].first, coupled), get(&Atom::color, graph));
 			auto vtx = vertices(graph);
-			if(graph[dcs[i].first].path)
+			if (graph[dcs[i].first].path && graph[dcs[i].first].path < NON_PASSABLE)
 			{ // not zero - connected
 				/*{
 					for (auto i = vtx.first; i != vtx.second; i++)
@@ -431,12 +553,13 @@ private:
 	std::vector<LevelOne> order1;
 	std::vector<LevelTwo> order2;
 	std::vector<Replacement> repls;
-	typedef set<pair<int, int>, edge_less> Cycle;
 	ChemGraph graph;
 	//location of DCs in 'graph' and their numeric value
 	vector<pair<ChemGraph::vertex_descriptor, int>> dcs;
-	//sorted arrays of edges - cycles
+	//sorted arrays of edges - basic cycles
 	vector<vector<pair<int, int>>> cycles;
+	//same basic cycles represented as chains of vertices
+	vector<vector<int>> chains;
 };
 
 FCSP::FCSP(std::vector<LevelOne> first, std::vector<LevelTwo> second, std::vector<Replacement> repls) :

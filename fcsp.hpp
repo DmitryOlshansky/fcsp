@@ -23,7 +23,7 @@ struct Atom{
 	Code code;
 	boost::default_color_type color; //used by DFS algorithm
 	int path;
-	bool inCycle; //part of cycle
+	bool inAromaCycle; //part of aromatic cycle
 	Atom(){}
 	Atom(double x_, double y_, double z_, Code code_) :
 		x(x_), y(y_), z(z_), code(code_), path(0){}
