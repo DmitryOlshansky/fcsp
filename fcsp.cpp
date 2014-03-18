@@ -179,6 +179,18 @@ int getValence(ChemGraph& graph, ChemGraph::vertex_descriptor vertex)
 	return valence;
 }
 
+int singleCount(ChemGraph& graph, ChemGraph::vertex_descriptor vertex)
+{
+	auto edges = out_edges(vertex, graph);
+	int cnt = 0;
+	for (auto p = edges.first; p != edges.second; p++)
+	{
+		if (graph[*p].type == 1)
+			cnt++;		
+	}
+	return cnt;
+}
+
 pair<int,int> multiCount(ChemGraph& graph, ChemGraph::vertex_descriptor vertex)
 {
 	auto edges = out_edges(vertex, graph);
@@ -304,6 +316,50 @@ struct FCSP::Impl{
 		if (idx >= (int)chain.size())
 			idx -= (int)chain.size();
 		return idx;
+	}
+
+	static string keyatom(ChemGraph& g, vd v)
+	{
+		//numbers mean at least x links of given type
+		//val == 0 - do not care
+		struct Entry {
+			char symbol;
+			Code code;
+			int valence;
+			int singleLinks;
+			int dualLinks;
+			int trippleLinks;
+		};
+		Entry table[] = {
+			{ 'M', Code(N), 0, 1, 1, 0 },
+			{ 'M', Code(N), 0, 1, 1, 0 },
+			{ 'Q', Code(O), 2, 0, 0, 0 },
+			{ 'R', Code(O), 3, 0, 0, 0 },
+			{ 'T', Code(S), 0, 1, 1, 0 },
+			{ 'S', Code(S), 2, 2, 0, 0 }
+		};
+		char c = 0;
+		for (auto& e : table)
+		{
+			if (g[v].code == e.code)
+			{
+				if (e.valence && g[v].valence != e.valence)
+					continue;
+				auto dt = multiCount(g, v);
+				auto s = singleCount(g, v);
+				if (e.singleLinks && e.singleLinks > s)
+					continue; //not enough links
+				if (e.dualLinks && e.dualLinks > dt.first)
+					continue;
+				if (e.trippleLinks && e.trippleLinks > dt.second)
+					continue;
+				return string(1, e.symbol);
+			}
+		}
+		if (heteroatom(g[v]))
+			return g[v].code.symbol();
+		else
+			return string();
 	}
 
 	static bool heteroatom(const Atom& atom)
@@ -518,6 +574,17 @@ struct FCSP::Impl{
 				for (int v : c)
 					piE += graph[v].piE;
 			}
+			vector<pair<string, int>> hatoms;
+			for (int v : c)
+			{
+				string c = keyatom(graph, v);
+				if (!c.empty())
+				{
+					hatoms.emplace_back(c, v);
+					cout << c << v;
+				}
+			}
+			cout << endl;
 			cout << setfill('0') << setw(1) << c.size()
 				<< "," 
 				<< setfill('0') << setw(2) << piE
