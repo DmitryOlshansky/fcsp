@@ -301,7 +301,7 @@ struct FCSP::Impl{
 	{
 		if (idx < 0)
 			idx += (int)chain.size();
-		if (idx >(int)chain.size())
+		if (idx >= (int)chain.size())
 			idx -= (int)chain.size();
 		return idx;
 	}

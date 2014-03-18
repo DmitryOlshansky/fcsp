@@ -157,7 +157,7 @@ namespace boost {
             , class BackInsertionSequence   // contains std::pair<vertex_descriptor,vertex_descriptor>
   >
   bool ullmann(const Graph& g1, const Graph& g2,
-  VertexLabeling& vertex_labeling, EdgeLabeling& edge_labeling, BackInsertionSequence& F) {
+  VertexLabeling&& vertex_labeling, EdgeLabeling&& edge_labeling, BackInsertionSequence& F) {
     typedef typename graph_traits<Graph>::vertex_descriptor    vertex_t;
     typedef ::boost::numeric::ublas::matrix<int>   matrix_t;
     size_t rows(num_vertices(g1));
@@ -189,7 +189,7 @@ namespace boost {
             , class DoubleBackInsertionSequence   // contains a back insertion sequence
   >
   bool ullmann_all(const Graph& g1, const Graph& g2,
-  VertexLabeling& vertex_labeling, EdgeLabeling& edge_labeling, DoubleBackInsertionSequence& F) {
+  VertexLabeling&& vertex_labeling, EdgeLabeling&& edge_labeling, DoubleBackInsertionSequence& F) {
     typedef typename graph_traits<Graph>::vertex_descriptor    vertex_t;
     typedef ::boost::numeric::ublas::matrix<int>   matrix_t;
     size_t rows(num_vertices(g1));
