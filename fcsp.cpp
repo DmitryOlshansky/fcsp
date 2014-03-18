@@ -209,8 +209,8 @@ struct FCSP::Impl{
 	{
 		locateDCs();
 		locateCycles();
-		linear(out);
 		cyclic(out);
+		linear(out);
 		replacement(out);
 	}
 
@@ -509,7 +509,20 @@ struct FCSP::Impl{
 
 	void cyclic(ostream& out)
 	{
-
+		//write out simple cycles
+		for (auto c : chains)
+		{
+			int piE = 0;
+			if (graph[c.front()].inAromaCycle)
+			{
+				for (int v : c)
+					piE += graph[v].piE;
+			}
+			cout << setfill('0') << setw(1) << c.size()
+				<< "," 
+				<< setfill('0') << setw(2) << piE
+				<< endl;
+		}
 	}
 
 	//find where repPos is mapped in mapping m
