@@ -125,7 +125,7 @@ CTab readMol(Parser& parser)
 	for(;;)
 	{
 		auto s = parser.line();
-		if(s == "M  END")
+		if(s == "M  END" || parser.eof())
 			break;
 		// cout << "Skipping: " << s << endl;
 	}

@@ -699,11 +699,11 @@ struct FCSP::Impl{
 		firstV = pickNonKeyAtom(1, fi, firstCycle, commonCh, common);
 		secondV = pickNonKeyAtom(-1, fi, firstCycle, commonCh, common);
 		string variant[4];
-		variant[0] = encodeHeteroAtoms(1, firstV, commonCh);
-		variant[1] = encodeHeteroAtoms(-1, firstV, commonCh);
-		variant[2] = encodeHeteroAtoms(1, secondV, commonCh);
-		variant[3] = encodeHeteroAtoms(-1, secondV, commonCh);
-		sort(variant, variant + 4);
+		//variant[0] = encodeHeteroAtoms(1, firstV, commonCh);
+		variant[0] = encodeHeteroAtoms(-1, firstV, commonCh);
+		variant[1] = encodeHeteroAtoms(1, secondV, commonCh);
+		//variant[3] = encodeHeteroAtoms(-1, secondV, commonCh);
+		sort(variant, variant + 2);
 		//cout << "Nonkey starters: " << chainAt(commonCh, firstV) << ", " << chainAt(commonCh, secondV) << endl;
 		return variant[0];
 	}

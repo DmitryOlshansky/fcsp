@@ -83,7 +83,6 @@ struct Parser
 	string line()
 	{
 		return readUpTo('\n');
-		
 	}
 
 	bool eof()
@@ -148,7 +147,12 @@ private:
 			next();
 		}
 		if (delim == '\n')
+		{
 			lineCnt++;
+			//strip \r if any
+			if(line.size() > 1 && line[line.size()-1] == '\r')
+				line.resize(line.size()-1);
+		}
 		if (!eof())
 			next();
 		return line;
