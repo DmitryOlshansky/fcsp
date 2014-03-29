@@ -299,16 +299,6 @@ struct FCSP::Impl{
 		cout << endl;
 	}
 
-	static set<int> cycleToVertices(const vector<pair<int, int>>& cycle)
-	{
-		set<int> vertices;
-		for (auto e : cycle)
-		{
-			vertices.insert(e.first);
-			vertices.insert(e.second);
-		}
-		return vertices;
-	}
 	template<class T>
 	static const T& chainAt(const vector<T>& chain, int idx)
 	{
@@ -377,6 +367,7 @@ struct FCSP::Impl{
 		vc.push_back(seed.second);
 		while (vc.front() != vc.back())
 		{
+			bool found = false;
 			for (auto e : ic)
 			{
 				auto p = mapper(e);
@@ -392,8 +383,10 @@ struct FCSP::Impl{
 					vc.insert(vc.begin(), p.first);
 				else
 					continue;
+				found = true;
 				break;
 			}
+			assert(found);
 		}
 		vc.pop_back();
 		return vc;
@@ -669,6 +662,7 @@ struct FCSP::Impl{
 			}
 		}
 		assert(false);
+		return 0;
 	}
 
 	string encodeHeteroAtoms(int dir, int start, vector<int>& commonCh)
@@ -694,24 +688,186 @@ struct FCSP::Impl{
 			return find(firstChain.begin(), firstChain.end(), v) != firstChain.end();
 		});
 		auto fi = firstIdx - commonCh.begin();
-		//идем в обе стороны и находим последние элементы в нашем цикле
+		//Идем в обе стороны и находим последние элементы в нашем цикле
 		int firstV, secondV;
+		//Правило: ключевые атомы (принадлежащие нескольким циклам) должны иметь наибольший номер
 		firstV = pickNonKeyAtom(1, fi, firstCycle, commonCh, common);
 		secondV = pickNonKeyAtom(-1, fi, firstCycle, commonCh, common);
-		string variant[4];
-		//variant[0] = encodeHeteroAtoms(1, firstV, commonCh);
+		string variant[2];
+		//firstV первый неключевой атом в "+" сторону, значит нумеруем в обратную
 		variant[0] = encodeHeteroAtoms(-1, firstV, commonCh);
+		//тоже для secondV
 		variant[1] = encodeHeteroAtoms(1, secondV, commonCh);
-		//variant[3] = encodeHeteroAtoms(-1, secondV, commonCh);
 		sort(variant, variant + 2);
-		//cout << "Nonkey starters: " << chainAt(commonCh, firstV) << ", " << chainAt(commonCh, secondV) << endl;
 		return variant[0];
+	}
+
+	//копирует ccv, тк будет не однакратно сортирован
+	void encodeOnePolyCycle(vector<int> ccv)
+	{
+		//элементарные циклы кодируются отдельно
+		if (ccv.size() == 1)
+			return;
+		vector<int> intercounts(cycles.size()); //кол-во пересечний с другими циклами
+		for (auto n : ccv)
+		{
+			int c = 0;
+			for (auto n2 : ccv)
+			{
+				if (intermap[n*cycles.size() + n2])
+					c++;
+			}
+			intercounts[n] = c;
+		}
+		// cout << ccv.size() << endl;
+		//Выбираем стартовый цикл - минимальный по числу пересечений (крайний), минимальный по числу элементов
+		//ищем сразу 2 стартовых цикла, на случай, где они одинково хорошо подходят
+		auto& cys = cycles;
+		partial_sort(ccv.begin(), ccv.begin() + 2, ccv.end(), [&intercounts, &cys](int a, int b){
+			int ia = intercounts[a];
+			int ib = intercounts[b];
+			return ia < ib || (ia == ib && cys[a].size() < cys[b].size());
+		});
+		auto start = ccv.begin();
+		//Строим огибающий цикл (ребра)
+		//в огибающей записывается номер цикла, которому принадлежит ребро
+		vector<Edge> common;
+		vector<size_t> idxs(ccv.size()); //idxs[i] --> cycles[ccv[i]][*]
+		//алгоритм объединения N множест ребер
+		//с исключением по предикату "принадлежит более чем одному множеству"
+		for (;;)
+		{
+			//which edge to pick
+			pair<int, int> m_edge(-1, -1);
+			size_t smallestCCV = 0; //number of ccv entry having the smalles edge so far
+			for (size_t i = 0; i < idxs.size(); i++)
+			{
+				auto n_edge = idxs[i];
+				if (n_edge >= cys[ccv[i]].size())
+					continue;
+				auto edge = cys[ccv[i]][n_edge];
+				if (m_edge.first < 0 || edge_less()(edge, m_edge))
+				{
+					m_edge = edge;
+					smallestCCV = i;
+				}
+			}
+			if (m_edge.first < 0)
+				break;
+			auto i = idxs[smallestCCV];
+			auto& c = cys[ccv[smallestCCV]];
+			idxs[smallestCCV]++;
+			//проверка - c[i] должен принадлежать только одному эл. циклу
+			int matches = 0;
+			for (auto x : ccv)
+			{
+				auto er = equal_range(cys[x].begin(), cys[x].end(), c[i], edge_less());
+				if (er.first != er.second)
+					matches++;
+			}
+			if (matches == 1 && (common.empty() || common.back().e != c[i]))
+				common.push_back(Edge(c[i], ccv[smallestCCV]));
+			assert(is_sorted(common.begin(), common.end()));
+		}
+		auto commonCh = cycleToChain(common, [](const Edge& e){ return e.e; });
+		string head = encodeHead(*start, commonCh, common, ccv.size());
+		string head2 = head;
+		// еще один стартовый цикл (если одинакового размера)
+		if (cycles[*start].size() == cycles[*(start + 1)].size())
+		{
+			head2 = encodeHead(*(start + 1), commonCh, common, ccv.size());
+		}
+		head = head < head2 ? head : head2;
+		//Суммируем Пи электроны по огибающей
+		auto range = vertices(graph);
+		auto sz = range.second - range.first;
+		vector<bool> visited(sz);
+		int piE = 0;
+		for (int v : commonCh)
+		{
+			piE += graph[v].piE;
+		}
+		bool aromatic = (piE - 2) % 4 == 0;
+		//Кодируем "хвост"
+		//Выбираем новый цикл - минимальный по числу пересечений (крайний), _максимальный_ по числу элементов
+		partial_sort(ccv.begin(), ccv.begin() + 2, ccv.end(), [&intercounts, &cys](int a, int b){
+			int ia = intercounts[a];
+			int ib = intercounts[b];
+			return ia < ib || (ia == ib && cys[a].size() > cys[b].size());
+		});
+		start = ccv.begin();
+		string tail = encodeTail(*start, commonCh, common, ccv.size());
+		string tail2 = tail;
+		// еще один стартовый цикл (если одинакового размера)
+		if (cycles[*start].size() == cycles[*(start + 1)].size())
+			tail2 = encodeTail(*(start + 1), commonCh, common, ccv.size());
+		if (tail > tail2)
+			tail = tail2;
+		cout << head;
+		cout << "," << setw(2) << (aromatic ? piE : 0);
+		cout << tail << endl;
+	}
+
+	void recursePoly(vector<int>& poly, map<int, vector<int>>& adj_list, set<vector<int>>& used)
+	{
+		auto e = poly.back();
+		for (auto x : adj_list[e])
+		{
+			{
+				if (find(poly.begin(), poly.end(), x) != poly.end())
+					continue;
+				assert(intermap[x + e*cycles.size()]);
+				poly.push_back(x);
+				if (poly.size() > 1)
+				{
+					auto cp = poly;
+					sort(cp.begin(), cp.end());
+					if (used.find(cp) == used.end())
+					{
+						encodeOnePolyCycle(cp);
+						using std::move;
+						used.insert(move(cp));
+					}
+				}
+				//добавить еще один цикл
+				if (poly.size() < adj_list.size())
+					recursePoly(poly, adj_list, used);
+				poly.pop_back();
+			}
+		}
+	}
+
+	void encodePolyCycles(vector<int>& ccv)
+	{
+		map<int, vector<int>> adj_list; //ccv[i] --> adj_list[i]
+		for (auto x : ccv)
+		{
+			vector<int> neib;
+			for (auto y : ccv)
+			{
+				if (y != x && intermap[y*cycles.size() + x])
+				{
+					neib.push_back(y);
+				}
+			}
+			using std::move;
+			adj_list.insert(make_pair(x, move(neib)));
+		}
+		vector<int> poly;
+		set<vector<int>> used;
+		for (auto x : ccv)
+		{
+			poly.push_back(x);
+			recursePoly(poly, adj_list, used);
+			poly.pop_back();
+			assert(poly.size() == 0);
+		}
 	}
 
 	void cyclic(ostream& out)
 	{
-		// write out simple cycles
-		// TODO: do this only for aromatic?
+		// Кодирование простых циклов
+		// Оставить только ароматические?
 		for (auto c : chains)
 		{
 			int piE = 0;
@@ -753,7 +909,7 @@ struct FCSP::Impl{
 			cout << endl;
 		}
 		//make a map of intersections
-		vector<bool> intermap(cycles.size()*cycles.size());
+		intermap.resize(cycles.size()*cycles.size());
 		vector<pair<int, int>> t;
 		for (size_t i = 0; i < cycles.size(); i++)
 		for (size_t j = i + 1; j < cycles.size(); j++)
@@ -766,179 +922,60 @@ struct FCSP::Impl{
 			intermap[i*cycles.size() + j] = intersection;
 			intermap[j*cycles.size() + i] = intersection;
 		}
-		for (size_t i = 0; i < cycles.size(); i++)
+		/*for (size_t i = 0; i < cycles.size(); i++)
 		{
 			for (size_t j = 0; j < cycles.size(); j++)
 			{
 				cout << intermap[i*cycles.size() + j];
 			}
 			cout << endl;
-		}
-		//make chains of cycles
-		vector<vector<size_t>> cycChains;
+		}*/
+		//
+		vector<int> ccv; //chain - indices of cycles
+		vector<bool> used(cycles.size());
+		do
 		{
-			vector<size_t> ccv; //chain - indices of cycles
-			vector<bool> used(cycles.size());
-			do
+			ccv.clear();
+			for (size_t i = 0; i < cycles.size();)
 			{
-				ccv.clear();
-				for (size_t i = 0; i < cycles.size();)
+				if (used[i])
 				{
-					if (used[i])
-					{
-						i++;
-						continue;
-					}
-					if (ccv.empty())
-					{
-						used[i] = true;
-						ccv.push_back(i);
-						i++; // первый непроверенный, нет нужды начинать с 0
-						continue;
-					}
-					//then must interesect some other cycle in this chain
-					bool found = false;
-					for (auto j : ccv)
-					{
-						if (intermap[i*cycles.size() + j])
-						{
-							found = true;
-							break;
-						}
-					}
-					if (found)
-					{
-						used[i] = true;
-						ccv.push_back(i);
-						i = 0; //нужно перепроверить циклы
-						continue;
-					}
 					i++;
+					continue;
 				}
-				if (!ccv.empty())
-					cycChains.push_back(ccv);
-			} while (!ccv.empty());
-		}
-		//Кодирование полициклов
-		for (auto& ccv : cycChains)
-		{
-			if (ccv.size() == 1)
-				continue;
-			//Выбираем стартовый цикл - минимальный по числу пересечений (крайний), минимальный по числу элементов
-			vector<int> intercounts(cycles.size());
-			for (auto n : ccv)
-			{
-				int c = 0;
-				for (auto n2 : ccv)
+				if (ccv.empty())
 				{
-					if (intermap[n*cycles.size() + n2])
-						c++;
+					used[i] = true;
+					ccv.push_back(i);
+					i++; // первый непроверенный, нет нужды начинать с 0
+					continue;
 				}
-				intercounts[n] = c;
-			}
-			cout << ccv.size() << endl;
-			auto& cys = cycles;
-			partial_sort(ccv.begin(), ccv.begin()+2, ccv.end(), [&intercounts, &cys](int a, int b){
-				int ia = intercounts[a];
-				int ib = intercounts[b];
-				return ia < ib || (ia == ib && cys[a].size() < cys[b].size());
-			});
-			//auto start = min_element(ccv.begin(), ccv.end(), );
-			auto start = ccv.begin();
-			//cout << "Start size:" << cys[*start].size() << endl;
-			//Строим огибающий цикл (ребра)
-			//в огибающей запоминаем номер цикла, которому принадлежит ребро
-			vector<Edge> common;
-			vector<size_t> idxs(ccv.size()); //idxs[i] --> cycles[ccv[i]][*]
-			//
-			for (;;)
-			{
-				//which edge to pick
-				pair<int, int> m_edge(-1,-1);
-				size_t smallestCCV = 0; //number of ccv entry having the smalles edge so far
-				for (size_t i = 0; i < idxs.size(); i++)
-				{					
-					auto n_edge = idxs[i];
-					if (n_edge >= cys[ccv[i]].size())
-						continue;
-					auto edge = cys[ccv[i]][n_edge];
-					if (m_edge.first < 0  || edge_less()(edge, m_edge))
+				//then must interesect some other cycle in this chain
+				bool found = false;
+				for (auto j : ccv)
+				{
+					if (intermap[i*cycles.size() + j])
 					{
-						m_edge = edge;
-						smallestCCV = i;
+						found = true;
+						break;
 					}
 				}
-				if (m_edge.first < 0)
-					break;
-				auto i = idxs[smallestCCV];
-				auto& c = cys[ccv[smallestCCV]];
-				idxs[smallestCCV]++;
-				//check if c[i] has only one owner across polycycle ccv
-				int matches = 0;
-				for (auto x : ccv)
+				if (found)
 				{
-					auto er = equal_range(cys[x].begin(), cys[x].end(), c[i], edge_less());
-					if (er.first != er.second)
-						matches++;
+					used[i] = true;
+					ccv.push_back(i);
+					i = 0; //нужно перепроверить циклы
+					continue;
 				}
-				if (matches == 1 && (common.empty() || common.back().e != c[i]))
-					common.push_back(Edge(c[i], ccv[smallestCCV]));
-				assert(is_sorted(common.begin(), common.end()));
+				i++;
 			}
-			/*for (size_t i = 0; i < idxs.size(); i++)
-				cout << idxs[i] << " of " << cycles[ccv[i]].size() << "(" << ccv[i] << ")" << endl;
-			for (auto x : common)
-				cout << x.e.first << ":" << x.e.second << "  ";
-			cout << endl;*/
-			auto commonCh = cycleToChain(common, [](const Edge& e){ return e.e; });
-			/*for (auto x : commonCh)
-				cout << x << "-";
-			cout << endl;*/
-			//homologize edges
-			for (auto& p : common)
-			if (p.e.first > p.e.second)
-				p.e = make_pair(p.e.second, p.e.first);
-			sort(common.begin(), common.end());
-			
-			string head = encodeHead(*start, commonCh, common, ccv.size());
-			string head2 = head;
-			// еще один стартовый цикл (если одинакового размера)
-			if (cycles[*start].size() == cycles[*(start + 1)].size())
+			if (ccv.size() > 1) //элементарные циклы уже учтены
 			{
-				head2 = encodeHead(*(start + 1), commonCh, common, ccv.size());
+				encodePolyCycles(ccv);
 			}
-			head = head < head2 ? head : head2;
-			//Суммируем Пи электроны (каждый атом или цепочка?)
-			auto range = vertices(graph);
-			auto sz = range.second - range.first;
-			vector<bool> visited(sz);
-			int piE = 0;
-			for (int v : commonCh)
-			{
-				piE += graph[v].piE;
-			}
-			bool aromatic = (piE - 2) % 4 == 0;
-			//Кодируем "хвост"
-			//Выбираем новый цикл - минимальный по числу пересечений (крайний), _максимальный_ по числу элементов
-			partial_sort(ccv.begin(), ccv.begin() + 2, ccv.end(), [&intercounts, &cys](int a, int b){
-				int ia = intercounts[a];
-				int ib = intercounts[b];
-				return ia < ib || (ia == ib && cys[a].size() > cys[b].size());
-			});
-			start = ccv.begin();
-			string tail = encodeTail(*start, commonCh, common, ccv.size());
-			string tail2 = tail;
-			// еще один стартовый цикл (если одинакового размера)
-			if (cycles[*start].size() == cycles[*(start + 1)].size())
-				tail2 = encodeTail(*(start+1), commonCh, common, ccv.size());
-			if (tail > tail2)
-				tail = tail2;
-			cout << head;
-			cout << "," << setw(2) << (aromatic ? piE : 0);
-			cout << tail << endl;
-		}
+		} while (!ccv.empty());
 	}
-
+			
 	//find where repPos is mapped in mapping m
 	int mapVertex(size_t repPos, const vector<pair<size_t, size_t>>& m)
 	{
@@ -1016,6 +1053,8 @@ private:
 	vector<vector<pair<int, int>>> cycles;
 	//same basic cycles represented as chains of vertices
 	vector<vector<int>> chains;
+	//map of intersection between cycles
+	vector<bool> intermap;
 };
 
 FCSP::FCSP(std::vector<LevelOne> first, std::vector<LevelTwo> second, std::vector<Replacement> repls) :
