@@ -206,6 +206,8 @@ private:
 			}
 			else if (!isspace(front())) //may skip space as well			
 				error("format error - expected digit:" + string(1, front()));
+			else if (front() == '\n')
+				break; //HACK for bad formats
 			next();
 		}
 		target = value;
@@ -213,25 +215,17 @@ private:
 
 	void parse(double& target, int n, int m)
 	{
-		bool negative = false;
-		int value = 0, frac = 0;
-		int j = skipSpace(n);
-		if (front() == '-')
+		char buf[64];
+		int k = n + m + 1;
+		//assert(n + m + 2 < 64);
+		for (int i = 0; i < k; i++)
 		{
-			negative = true;
-			j++;
+			buf[i] = front();
 			next();
 		}
-		if (j != n)
-		{
-			parse(value, n - j);
-		}
-		if (front() != '.')
-			error("format error - expected '.'");
-		next(); //skip '.'
-		parse(frac, m);
-		double ret = value + frac * pow(0.1, m);
-		target = negative ? -ret : ret;
+		buf[k] = 0;
+		target = atof(buf);
+		//target = negative ? -ret : ret;
 	}
 
 };

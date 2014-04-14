@@ -115,7 +115,7 @@ CTab readMol(Parser& parser)
 		int first, second;
 		int ttt, sss, xxx, rrr, ccc;
 		parser.matchfln("111222tttsssxxxrrrccc", first, second,
-			ttt, sss, xxx, rrr, ccc);			
+			ttt, sss, xxx, rrr, ccc);
 		if(first < 0 || second < 0 ||
 				first > (int)tab.atoms.size() || second > (int)tab.atoms.size())
 			error("bad bounds indices - out of range.");

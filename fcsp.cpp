@@ -302,9 +302,9 @@ struct FCSP::Impl{
 	template<class T>
 	static const T& chainAt(const vector<T>& chain, int idx)
 	{
-		if (idx < 0)
+		while (idx < 0)
 			idx += (int)chain.size();
-		if (idx >= (int)chain.size())
+		while (idx >= (int)chain.size())
 			idx -= (int)chain.size();
 		return chain[idx];
 	}
@@ -515,6 +515,20 @@ struct FCSP::Impl{
 			cout << dc.first << " -DC-> " << dc.second << endl;
 		}
 		cout << endl;
+	}
+
+	void locateIrregular()
+	{
+		/*for (auto& r : irregularTempl)
+		{
+			vector<vector<pair<size_t, size_t>>> mappings;
+			auto& g = graph;
+			ullmann_all(r.piece, graph, [&r, &g](ChemGraph::vertex_descriptor a, ChemGraph::vertex_descriptor b){
+				return r.piece[a].code == g[b].code;
+			}, [&r, &g](ChemGraph::edge_descriptor a, ChemGraph::edge_descriptor b){
+				return r.piece[a].type == g[b].type;
+			}, mappings);
+		}*/
 	}
 
 	template<class Fn>
