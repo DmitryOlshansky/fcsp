@@ -35,8 +35,8 @@ void read1stOrder(istream& inp, vector<LevelOne> &dest)
 				break;
 		}
 	}
-	for (auto a : dest)
-		cout << "*** " << a.center.symbol() << " " << a.valence << " " << "DC: " << a.dc << endl;
+	//for (auto a : dest)
+	//	cout << "*** " << a.center.symbol() << " " << a.valence << " " << "DC: " << a.dc << endl;
 }
 
 void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
@@ -82,7 +82,7 @@ void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 			dest.insert(lb, t);
 		});
 	}
-	
+	/*
 	for (auto &e : dest)
 	{
 		cout << "^^^ " << e.center.symbol() << " " << e.valence << "{ ";
@@ -90,4 +90,5 @@ void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 			cout << lnk.atom.symbol() << " ";
 		cout << "} DC: " << e.dc << endl;
 	}
+	*/
 }

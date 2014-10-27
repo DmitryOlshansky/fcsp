@@ -103,7 +103,7 @@ int main(int argc, const char* argv[])
 		FCSP fcsp(move(order1), move(order2), move(replacements));
 		for(auto& arg : inputs)
 		{
-			cout << "Reading " << arg << endl;
+			cerr << "Reading " << arg << endl;
 			ifstream f(arg);
 			if(!f){
 				cerr << "ERROR: cannot open '" << arg << "'\n";

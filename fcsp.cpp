@@ -23,9 +23,9 @@ void printCycle(vector<pair<int, int>>& v)
 {
 	for (auto & e : v)
 	{
-		cout << e.first << "--" << e.second << endl;
+		cerr << e.first << "--" << e.second << endl;
 	}
-	cout << endl;
+	cerr << endl;
 }
 
 inline bool couplingLink(int type)
@@ -49,7 +49,7 @@ struct markLoops : public dfs_visitor<>{
 			path.pop_back();
 		}
 		path.emplace_back(a, b);
-		cout << a << "-->" << b << endl;
+		cerr << a << "-->" << b << endl;
 	}
 
 	template<class Edge, class Graph>
@@ -58,7 +58,7 @@ struct markLoops : public dfs_visitor<>{
 		auto a = source(e, g);
 		auto b = target(e, g);
 		auto c = make_pair((int)b, (int)a);
-		cout << a << "++>" << b << endl;
+		cerr << a << "++>" << b << endl;
 		if (find_if(path.begin(), path.end(), [c](const pair<int, int> &p){
 			return p.first == c.first && p.second == c.second;
 		}) == path.end())
@@ -72,10 +72,10 @@ struct markLoops : public dfs_visitor<>{
 			});
 			vector<pair<int, int>> v{ start, path.begin()+len };
 			v.emplace_back(a, b);
-			cout << "~~~~~" << endl;
+			cerr << "~~~~~" << endl;
 			printCycle(v);
 			cycles.push_back(std::move(v));
-			cout << "*****" << endl;
+			cerr << "*****" << endl;
 		}
 	}
 };
@@ -246,7 +246,7 @@ struct FCSP::Impl{
 			auto dual_tripple = multiCount(graph, *i);
 			int piE = countPiElectrons(graph[*i].code, valency, dual_tripple.first, dual_tripple.second);
 			graph[*i].piE = piE > 0 ? piE : 0;
-			cout << "VALENCY " << valency << " for " << graph[*i].code.symbol() << endl;
+			//cout << "VALENCY " << valency << " for " << graph[*i].code.symbol() << endl;
 
 			LevelOne t(graph[*i].code, valency, 0);
 			auto range = equal_range(order1.begin(), order1.end(), t);
@@ -264,7 +264,7 @@ struct FCSP::Impl{
 					continue;
 				if (!j->center.matches(graph[*i].code.code()))
 					continue;
-				cout << "Matched CENTER " << j->center.symbol() << endl;
+				//cout << "Matched CENTER " << j->center.symbol() << endl;
 				if (j->valence != valency)
 					continue;
 				vector<bool> matched(j->bonds.size());
@@ -281,8 +281,8 @@ struct FCSP::Impl{
 						auto v = target(*p, graph);
 						if (!j->bonds[k].atom.matches(graph[v].code.code()))
 							continue;
-						cout << "   matched " << j->bonds[k].atom.symbol()
-							<< " vs " << graph[v].code.symbol() << endl;
+						//cout << "   matched " << j->bonds[k].atom.symbol()
+						//	<< " vs " << graph[v].code.symbol() << endl;
 						matched[k] = true;
 						break;
 					}
@@ -291,12 +291,12 @@ struct FCSP::Impl{
 				}
 				if (p == edges.second)
 				{
-					cout << "DONE." << endl;
+					//cout << "DONE." << endl;
 					dcs.emplace_back(*i, j->dc);
 				}
 			}
 		}
-		cout << endl;
+		//cout << endl;
 	}
 
 	template<class T>
@@ -403,7 +403,7 @@ struct FCSP::Impl{
 			});
 			sort(c.begin(), c.end(), edge_less());
 		}
-		cout << "BEFORE SPLIT" << endl;
+		cerr << "BEFORE SPLIT" << endl;
 		for_each(cycles.begin(), cycles.end(), &printCycle);
 		vector<pair<int, int>> t, t2, uc, xc;
 		//TODO: need some solid proof and potentially incorrect in complex cases:
@@ -436,9 +436,9 @@ struct FCSP::Impl{
 				result[m++] = make_pair(lenX, &xc);
 			for (int k = 0; k < m; k++)
 			{
-				cout << result[k].first << " ";
+				cerr << result[k].first << " ";
 			}
-			cout << endl;
+			cerr << endl;
 			sort(result, result + m, [](pair<size_t, vector<pair<int, int>>*> a, pair<size_t, vector<pair<int, int>>*> b){
 				return a.first < b.first;
 			});
@@ -448,30 +448,30 @@ struct FCSP::Impl{
 				continue; //same cycles have won
 			auto n1 = *result[1].second;
 			auto n2 = *result[0].second;
-			cout << n1.size() << " " << n2.size() << endl;
+			cerr << n1.size() << " " << n2.size() << endl;
 			c1 = n1;
 			c2 = n2;
 		}
-		cout << "AFTER SPLIT" << endl;
+		cerr << "AFTER SPLIT" << endl;
 		for_each(cycles.begin(), cycles.end(), &printCycle);
 		for (auto ic : cycles)
 		{
 			assert(ic.size() > 2);
 			auto vc = cycleToChain(ic, [](const pair<int, int>& p){ return p; });
-			cout << "CHAIN: ";
+			cerr << "CHAIN: ";
 			for (int k : vc)
-				cout << k << " - ";
-			cout << endl;
+				cerr << k << " - ";
+			cerr << endl;
 			auto& g = graph;
 			int piEl = 0;
 			for_each(vc.begin(), vc.end(), [&g, &piEl](int n){
-				cout << "Atom # " << n << " " << g[n].code.symbol() << " pi E = " << g[n].piE << endl;
+				cerr << "Atom # " << n << " " << g[n].code.symbol() << " pi E = " << g[n].piE << endl;
 				if (g[n].piE > 0)
 					piEl += g[n].piE;
 				//TODO: add debug trace for < 0
 			});
 			bool aromatic = ((piEl - 2) % 4 == 0);
-			cout << "PI E " << piEl << " aromatic? : " << aromatic << endl;
+			cerr << "PI E " << piEl << " aromatic? : " << aromatic << endl;
 			//assign cyclic-only DC
 			if (aromatic)
 			{
@@ -509,12 +509,12 @@ struct FCSP::Impl{
 		sort(dcs.begin(), dcs.end(), [](const pair<vd, int>& a, const pair<vd, int>& b){
 			return a.second < b.second;
 		});
-		cout << "DCs:" << endl;
+		cerr << "DCs:" << endl;
 		for (auto& dc : dcs)
 		{
-			cout << dc.first << " -DC-> " << dc.second << endl;
+			cerr << dc.first << " -DC-> " << dc.second << endl;
 		}
-		cout << endl;
+		cerr << endl;
 	}
 
 	void locateIrregular()
