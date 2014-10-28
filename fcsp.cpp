@@ -224,7 +224,7 @@ struct FCSP::Impl{
 		locateCycles();
 		cyclic(out);
 		linear(out);
-		//replacement(out);
+		replacement(out);
 	}
 
 	void dumpGraph(ostream& out)
@@ -395,6 +395,7 @@ struct FCSP::Impl{
 	void locateCycles()
 	{
 		cycles.clear();
+		chains.clear();
 		depth_first_search(graph, markLoops(cycles), get(&Atom::color, graph));
 		for (auto & c : cycles)
 		{
@@ -924,6 +925,7 @@ struct FCSP::Impl{
 		}
 		//make a map of intersections
 		intermap.resize(cycles.size()*cycles.size());
+		intermap.clear();
 		vector<pair<int, int>> t;
 		for (size_t i = 0; i < cycles.size(); i++)
 		for (size_t j = i + 1; j < cycles.size(); j++)
