@@ -4,5 +4,5 @@ if env['CXX'] == 'cl':
 elif env['CXX'] == 'g++':
 	env.Append(CCFLAGS="-std=gnu++11")
 libs = ["boost_program_options", "boost_system", "boost_filesystem"]
-src = Glob("*.cpp")
-env.Program(b'fcsp', src, LIBS=libs);
+src = Glob("src/*.cpp")
+env.Program('fcsp', src, LIBS=libs);
