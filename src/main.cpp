@@ -33,6 +33,28 @@ void readReplacements(ifstream& inp, vector<Replacement>& repls)
 	});
 }
 
+void processFile(FCSP& fcsp, const string& path, bool plot)
+{
+    cerr << "Reading " << path << endl;
+    ifstream f(path);
+    if(!f){
+        cerr << "ERROR: cannot open '" << path << "'\n";
+        return;
+    }
+    try{
+        fcsp.load(f);
+        if (plot){
+            ofstream dot(path+".dot");
+            fcsp.dumpGraph(dot);
+        }
+        fcsp.process(cout);
+    }
+    catch(std::exception &e)
+    {
+        cerr << e.what() << endl;
+    }
+}
+
 int main(int argc, const char* argv[])
 {
 	bool plot = false;
@@ -56,12 +78,10 @@ int main(int argc, const char* argv[])
 	try{
 		po::store(po::command_line_parser(argc, argv)
 			.options(whole).positional(posOpt).run(), vars);
-		if (!vars.count("inputs"))
+		if (vars.count("inputs"))
 		{
-			cout << visible << endl;
-			return 1;
+            inputs = vars["inputs"].as<vector<string>>();	
 		}
-		inputs = vars["inputs"].as<vector<string>>();
 		plot = vars.count("plot") ? vars["plot"].as<bool>() : false;
 		descriptors = vars.count("descriptors") ? vars["descriptors"].as<string>() : ".";
 	}
@@ -101,27 +121,12 @@ int main(int argc, const char* argv[])
 		read2ndOrder(descr2, order2);
 		readReplacements(repl, replacements);
 		FCSP fcsp(move(order1), move(order2), move(replacements));
-		for(auto& arg : inputs)
-		{
-			cerr << "Reading " << arg << endl;
-			ifstream f(arg);
-			if(!f){
-				cerr << "ERROR: cannot open '" << arg << "'\n";
-				continue;
-			}
-			try{
-				fcsp.load(f);
-				if (plot){
-					ofstream dot(arg+".dot");
-					fcsp.dumpGraph(dot);
-				}
-				fcsp.process(cout);
-			}
-			catch(std::exception &e)
-			{
-				cerr << e.what() << endl;
-			}
-		}
+        if(inputs.empty()){
+            fcsp.load(cin);
+            fcsp.process(cout);
+        }
+		else
+            for(auto& arg : inputs) processFile(fcsp, arg, plot);
 	}
 	catch(std::exception& e)
 	{
