@@ -82,13 +82,13 @@ void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 			dest.insert(lb, t);
 		});
 	}
-	/*
+	
 	for (auto &e : dest)
 	{
-		cout << "^^^ " << e.center.symbol() << " " << e.valence << "{ ";
+		cerr << "^^^ " << e.center.symbol() << " " << e.valence << "{ ";
 		for (auto lnk : e.bonds)
-			cout << lnk.atom.symbol() << " ";
-		cout << "} DC: " << e.dc << endl;
+			cerr << lnk.atom.symbol() << " ";
+		cerr << "} DC: " << e.dc << endl;
 	}
-	*/
+	
 }
