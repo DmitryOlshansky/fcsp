@@ -235,7 +235,6 @@ struct FCSP::Impl{
 	void locateDCs()
 	{
 		dcs.clear();
-		using vd = ChemGraph::vertex_descriptor;
 		auto vrtx = vertices(graph);
 		for (auto i = vrtx.first; i != vrtx.second; i++)
 		{
@@ -582,8 +581,11 @@ struct FCSP::Impl{
 				int dc1 = dcs[i].second;
 				int dc2 = dcs[j].second;
 				int len = graph[dcs[i].first].path - 1;
-				//SPECIAL RULE for DC = 41 (better make it more general?)
-				if (dc1 == 41 || dc2 == 41)
+				// SPECIAL RULE for DC = 41 
+				// if DC in C and not in aroma cycle then add 1 to length
+				if (graph[start].code.matches(C) && !graph[start].inAromCycle)
+					len += 1;
+				if (graph[end].code.matches(C) && !graph[end].inAromCycle)
 					len += 1;
 				out << setfill('0') << setw(2) << dc1
 					<< setfill('0') << setw(2) << len
@@ -1069,7 +1071,6 @@ struct FCSP::Impl{
 	}
 
 private:
-	using vd = ChemGraph::vertex_descriptor;
 	std::vector<LevelOne> order1;
 	std::vector<LevelTwo> order2;
 	std::vector<Replacement> repls;
