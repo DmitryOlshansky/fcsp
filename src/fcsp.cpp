@@ -1025,8 +1025,18 @@ struct FCSP::Impl{
 		{
 			vector<vector<pair<size_t, size_t>>> mappings;
 			auto& g = graph;
-			ullmann_all(r.piece, graph, [&r, &g](ChemGraph::vertex_descriptor a, ChemGraph::vertex_descriptor b){
-				return r.piece[a].code.matches(g[b].code.code());
+			ullmann_all(r.piece, graph, [&](ChemGraph::vertex_descriptor a, ChemGraph::vertex_descriptor b){				
+				if(!r.piece[a].code.matches(g[b].code.code()))
+					return false;
+				if(a == r.a1 || a == r.a2){
+					if(g[b].inAromaCycle) // none of replacemnt dc are in aroma cycle
+						return false;
+					return find_if(dcs.begin(), dcs.end(), [&](pair<vd,size_t> dcp){
+						return dcp.first == b;
+					}) != dcs.end();
+				}
+				else
+					return true;
 			}, [&r, &g](ChemGraph::edge_descriptor a, ChemGraph::edge_descriptor b){
 				return r.piece[a].type == g[b].type;
 			}, mappings);
@@ -1059,12 +1069,13 @@ struct FCSP::Impl{
 	}
 
 private:
+	using vd = ChemGraph::vertex_descriptor;
 	std::vector<LevelOne> order1;
 	std::vector<LevelTwo> order2;
 	std::vector<Replacement> repls;
 	ChemGraph graph;
 	//location of DCs in 'graph' and their numeric value
-	vector<pair<ChemGraph::vertex_descriptor, int>> dcs;
+	vector<pair<vd, int>> dcs;
 	//sorted arrays of edges - basic cycles
 	vector<vector<pair<int, int>>> cycles;
 	//same basic cycles represented as chains of vertices
