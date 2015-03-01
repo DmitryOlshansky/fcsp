@@ -189,8 +189,8 @@ struct Module{
 		piElectrons(Au, 0, 2, -1, -1, -1);
 		piElectrons(Hg, 0, 2, -1, -1, -1);
 		piElectrons(Tl, 0, 2, -1, -1, -1);
-		piElectrons(Bi, 3, 2, -1, -1, -1);
-		piElectrons(Bi, 5, 1, -1, -1, -1);
+		piElectrons(Bi, 2, 2, -1, -1, -1);
+		piElectrons(Bi, 1, 1, -1, -1, -1);
 	}
 };
 
