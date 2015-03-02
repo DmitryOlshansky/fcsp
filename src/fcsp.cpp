@@ -583,9 +583,9 @@ struct FCSP::Impl{
 				int len = graph[dcs[i].first].path - 1;
 				// SPECIAL RULE for DC = 41 
 				// if DC in C and not in aroma cycle then add 1 to length
-				if (graph[start].code.matches(C) && !graph[start].inAromCycle)
+				if (graph[start].code.matches(C) && !graph[start].inAromaCycle)
 					len += 1;
-				if (graph[end].code.matches(C) && !graph[end].inAromCycle)
+				if (graph[end].code.matches(C) && !graph[end].inAromaCycle)
 					len += 1;
 				out << setfill('0') << setw(2) << dc1
 					<< setfill('0') << setw(2) << len
