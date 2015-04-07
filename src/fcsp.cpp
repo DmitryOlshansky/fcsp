@@ -225,6 +225,7 @@ struct FCSP::Impl{
 		cyclic(out);
 		linear(out);
 		replacement(out);
+		cout << endl;
 	}
 
 	void dumpGraph(ostream& out)
@@ -590,7 +591,7 @@ struct FCSP::Impl{
 				out << setfill('0') << setw(2) << dc1
 					<< setfill('0') << setw(2) << len
 					<< setfill('0') << setw(2) << dc2
-					<< (coupled ? 1 : 0) << endl;
+					<< (coupled ? 1 : 0) << ' ';
 			}
 		}
 	}
@@ -822,7 +823,7 @@ struct FCSP::Impl{
 			tail = tail2;
 		cout << head;
 		cout << "," << setw(2) << (aromatic ? piE : 0);
-		cout << tail << endl;
+		cout << tail << ' ';
 	}
 
 	void recursePoly(vector<int>& poly, map<int, vector<int>>& adj_list, set<vector<int>>& used)
@@ -923,7 +924,7 @@ struct FCSP::Impl{
 				}
 				cout << (left_descr < right_descr ? left_descr : right_descr);
 			}
-			cout << endl;
+			cout << ' ';
 		}
 		//make a map of intersections
 		intermap.resize(cycles.size()*cycles.size());
@@ -1065,7 +1066,7 @@ struct FCSP::Impl{
 				cout << setfill('0') << setw(2) << fdc
 					<< setfill('0') << setw(2) << r.dc
 					<< setfill('0') << setw(2) << sdc
-					<< r.coupling << endl;
+					<< r.coupling << ' ';
 			}
 		}
 	}
