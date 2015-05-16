@@ -28,6 +28,19 @@ void printCycle(vector<pair<int, int>>& v)
 	cerr << endl;
 }
 
+void printJsArray(vector<int>& v, ostream& out)
+{
+	out << "[";
+	sort(v.begin(), v.end());
+	v.erase(unique(v.begin(), v.end()), v.end());
+	for(size_t i=0;i<v.size();i++)
+	{
+		if(i != 0) out << ", ";
+		out << v[i];
+	}
+	out << "]";
+}
+
 inline bool couplingLink(int type)
 {
 	return type != 1; // not a single link - aromatic or double, triple
@@ -104,23 +117,6 @@ ChemGraph toGraph(CTab& tab)
 		add_edge(vrange.first[b.a1] - 1, vrange.first[b.a2] - 1, Bound(b.type), graph);
 	});
 	return graph;
-}
-
-void addHydrogen(CTab& tab, ChemGraph& graph)
-{	
-	/*auto c = Code("C");
-	auto h = Code("H");
-	auto& atoms = tab.atoms;
-	for (size_t i = 0; i < atoms.size(); i++)
-	{
-		
-			//for (int k = 0; k < atoms[i].implicitH; k++)
-			{
-				auto j = add_vertex(Atom(0.0, 0.0, 0.0, h), graph);
-				add_edge(j, i, Bound(1), graph);
-			}
-		}
-	}*/
 }
 
 struct TrackPath: public default_bfs_visitor {
@@ -214,18 +210,24 @@ struct FCSP::Impl{
 	{
 		CTab tab = readMol(inp);
 		graph = toGraph(tab);
-		//TODO: add implicit Hydrogen!!! (but only for FCSP molecule, not in toGraph)
-		addHydrogen(tab, graph);
 	}
 
 	void process(ostream& out)
 	{
+		jsons.clear();
 		locateDCs();
 		locateCycles();
 		cyclic(out);
 		linear(out);
 		replacement(out);
-		cout << endl;
+		out << "[";
+		for(size_t i=0; i<jsons.size();i++){
+			if(i != 0)
+				out << ", ";
+			out << jsons[i];
+		}
+		out << "]";
+		out << endl;
 	}
 
 	void dumpGraph(ostream& out)
@@ -233,9 +235,20 @@ struct FCSP::Impl{
 		::dumpGraph(graph, out);
 	}
 
+	void outputJs(string code, vector<int>& atoms)
+	{
+		stringstream s;
+		s << "{" << "\"code\" : \""<<code<<"\",";
+		s << "\"place\": ";
+		printJsArray(atoms, s); 
+		s << "}";
+		jsons.push_back(s.str());
+	}
+
 	void locateDCs()
 	{
 		dcs.clear();
+		dcsAtoms.clear();
 		auto vrtx = vertices(graph);
 		for (auto i = vrtx.first; i != vrtx.second; i++)
 		{
@@ -268,6 +281,7 @@ struct FCSP::Impl{
 				if (j->valence != valency)
 					continue;
 				vector<bool> matched(j->bonds.size());
+				vector<int> atoms; // atoms in this center
 				auto p = edges.first;
 				for (; p != edges.second; p++)
 				{
@@ -283,6 +297,7 @@ struct FCSP::Impl{
 							continue;
 						//cout << "   matched " << j->bonds[k].atom.symbol()
 						//	<< " vs " << graph[v].code.symbol() << endl;
+						atoms.push_back(v);
 						matched[k] = true;
 						break;
 					}
@@ -293,6 +308,7 @@ struct FCSP::Impl{
 				{
 					//cout << "DONE." << endl;
 					dcs.emplace_back(*i, j->dc);
+					dcsAtoms.insert(make_pair(*i, atoms));
 				}
 			}
 		}
@@ -532,6 +548,13 @@ struct FCSP::Impl{
 		}*/
 	}
 
+	void addDescriptorAtoms(vector<int>& fragment, vd dc)
+	{
+		if(dcsAtoms.find(dc) != dcsAtoms.end()){
+			fragment.insert(fragment.end(), dcsAtoms[dc].begin(), dcsAtoms[dc].end());
+		}
+	}
+
 	template<class Fn>
 	void applyPath(vd start, vd end, Fn&& fn)
 	{
@@ -559,7 +582,6 @@ struct FCSP::Impl{
 
 	void linear(ostream& out)
 	{
-		
 		queue<vd> buf;
 		for (size_t i = 0; i < dcs.size(); i++)
 		for (size_t j = i  + 1; j < dcs.size(); j++)
@@ -573,11 +595,12 @@ struct FCSP::Impl{
 			{
 				bool coupled = false;
 				auto &g = graph;
-				
-				applyPath(start, end, [g, &coupled](vd v){
+				vector<int> fragment;
+				applyPath(start, end, [g, &coupled,&fragment](vd v){
 					//cout << "Apply: " << g[v].code.symbol() << endl;
 					if (g[v].code.matches(C) && g[v].piE > 0)
 						coupled = true;
+					fragment.push_back((int)v);
 				});
 				int dc1 = dcs[i].second;
 				int dc2 = dcs[j].second;
@@ -588,10 +611,15 @@ struct FCSP::Impl{
 					len += 1;
 				if (graph[end].code.matches(C) && !graph[end].inAromaCycle)
 					len += 1;
-				out << setfill('0') << setw(2) << dc1
+
+				stringstream buffer;
+				buffer << setfill('0') << setw(2) << dc1
 					<< setfill('0') << setw(2) << len
 					<< setfill('0') << setw(2) << dc2
-					<< (coupled ? 1 : 0) << ' ';
+					<< (coupled ? 1 : 0);
+				addDescriptorAtoms(fragment, dcs[i].first);
+				addDescriptorAtoms(fragment, dcs[j].first);
+				outputJs(buffer.str(), fragment);
 			}
 		}
 	}
@@ -821,9 +849,16 @@ struct FCSP::Impl{
 			tail2 = encodeTail(*(start + 1), commonCh, common, ccv.size());
 		if (tail > tail2)
 			tail = tail2;
-		cout << head;
-		cout << "," << setw(2) << (aromatic ? piE : 0);
-		cout << tail << ' ';
+		stringstream buffer;
+		vector<int> fragment;
+
+		buffer << head;
+		buffer << "," << setfill('0') << setw(2) << (aromatic ? piE : 0);
+		buffer << tail;
+		for(auto cc : ccv){
+			fragment.insert(fragment.end(), chains[cc].begin(), chains[cc].end());
+		}
+		outputJs(buffer.str(), fragment);
 	}
 
 	void recursePoly(vector<int>& poly, map<int, vector<int>>& adj_list, set<vector<int>>& used)
@@ -903,10 +938,14 @@ struct FCSP::Impl{
 					hatoms.emplace_back(s, v);
 				}
 			}
+
 			auto pivot = min_element(hatoms.begin(), hatoms.end(), [](const pair<string, int> & lhs, const pair<string, int> &rhs){
 				return lhs.first < rhs.first;
 			});
-			cout << setfill('0') << setw(1) << c.size()
+			stringstream buffer;
+			vector<int> fragment;
+			fragment.insert(fragment.end(), c.begin(), c.end());
+			buffer << setfill('0') << setw(1) << c.size()
 				<< ","
 				<< setfill('0') << setw(2) << piE;
 			bool heterocycle = pivot != hatoms.end();
@@ -922,9 +961,9 @@ struct FCSP::Impl{
 					left_descr += nextL.first + number;
 					right_descr += nextR.first + number;
 				}
-				cout << (left_descr < right_descr ? left_descr : right_descr);
+				buffer << (left_descr < right_descr ? left_descr : right_descr);
 			}
-			cout << ' ';
+			outputJs(buffer.str(), fragment);
 		}
 		//make a map of intersections
 		intermap.resize(cycles.size()*cycles.size());
@@ -994,7 +1033,7 @@ struct FCSP::Impl{
 			}
 		} while (!ccv.empty());
 	}
-			
+
 	//find where repPos is mapped in mapping m
 	int mapVertex(size_t repPos, const vector<pair<size_t, size_t>>& m)
 	{
@@ -1032,7 +1071,7 @@ struct FCSP::Impl{
 				if(!r.piece[a].code.matches(g[b].code.code()))
 					return false;
 				if(a == r.a1 || a == r.a2){
-					if(g[b].inAromaCycle) // none of replacemnt dc are in aroma cycle
+					if(g[b].inAromaCycle) // none of replacemnt dc are in aroma cycle (e.g. DC 41 is CH3)
 						return false;
 					return find_if(dcs.begin(), dcs.end(), [&](pair<vd,size_t> dcp){
 						return dcp.first == b;
@@ -1063,10 +1102,18 @@ struct FCSP::Impl{
 				// the usual rule of smaller DC first
 				if (fdc > sdc)
 					swap(fdc, sdc);
-				cout << setfill('0') << setw(2) << fdc
+				stringstream buffer;
+				vector<int> fragment;
+				for(auto& p : m)
+					fragment.push_back(p.first);
+				addDescriptorAtoms(fragment, fV);
+				addDescriptorAtoms(fragment, sV);
+
+				buffer << setfill('0') << setw(2) << fdc
 					<< setfill('0') << setw(2) << r.dc
 					<< setfill('0') << setw(2) << sdc
-					<< r.coupling << ' ';
+					<< r.coupling;
+				outputJs(buffer.str(), fragment);
 			}
 		}
 	}
@@ -1078,6 +1125,9 @@ private:
 	ChemGraph graph;
 	//location of DCs in 'graph' and their numeric value
 	vector<pair<vd, int>> dcs;
+	map<vd, vector<int>> dcsAtoms; // extra atoms that belong to each DC  
+	//
+	vector<string> jsons;
 	//sorted arrays of edges - basic cycles
 	vector<vector<pair<int, int>>> cycles;
 	//same basic cycles represented as chains of vertices
