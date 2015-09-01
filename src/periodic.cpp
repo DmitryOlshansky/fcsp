@@ -51,7 +51,7 @@ struct PiElectrons{
 		return code < rhs.code || (code == rhs.code && valence < rhs.valence);
 	}
 	PiElectrons(int c, int val, int no_bonds, int one_dual, int two_dual, int one_tripple) :
-		code(c), valence(val), no_multi_bonds(no_bonds), one_dual_bond(one_dual), two_dual_bonds(two_dual), one_triple_bond(one_triple_bond){}
+		code(c), valence(val), no_multi_bonds(no_bonds), one_dual_bond(one_dual), two_dual_bonds(two_dual), one_triple_bond(one_tripple){}
 };
 
 //

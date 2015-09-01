@@ -242,8 +242,9 @@ struct FCSP::Impl{
 	void process(ostream& out)
 	{
 		clear();
-		locateCycles();
+		locatePiElectrons();
 		locateDCs();
+		locateCycles();
 		cyclic(out);
 		linear(out);
 		replacement(out);
@@ -272,7 +273,7 @@ struct FCSP::Impl{
 		jsons.push_back(s.str());
 	}
 
-	void locateDCs()
+	void locatePiElectrons()
 	{
 		auto vrtx = vertices(graph);
 		for (auto i = vrtx.first; i != vrtx.second; i++)
@@ -284,8 +285,16 @@ struct FCSP::Impl{
 			auto dual_tripple = multiCount(graph, *i);
 			int piE = countPiElectrons(graph[*i].code, valency, dual_tripple.first, dual_tripple.second);
 			graph[*i].piE = piE > 0 ? piE : 0;
-			//cout << "VALENCY " << valency << " for " << graph[*i].code.symbol() << endl;
+		}
+	}
 
+	void locateDCs()
+	{
+		auto vrtx = vertices(graph);
+		for (auto i = vrtx.first; i != vrtx.second; i++)
+		{
+			int valency = graph[*i].valence;
+			auto edges = out_edges(*i, graph);
 			LevelOne t(graph[*i].code, valency, 0);
 			auto range = equal_range(order1.begin(), order1.end(), t);
 			for (auto j = range.first; j != range.second; ++j)
