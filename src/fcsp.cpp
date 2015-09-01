@@ -18,6 +18,7 @@ using namespace std;
 using namespace boost;
 
 using vd = ChemGraph::vertex_descriptor;
+using ed = ChemGraph::edge_descriptor;
 
 void printCycle(vector<pair<int, int>>& v)
 {
@@ -121,14 +122,21 @@ ChemGraph toGraph(CTab& tab)
 
 struct TrackPath: public default_bfs_visitor {
 	ChemGraph& g;
+	vector<pair<vd, int>>& dcs;
 	ChemGraph::vertex_descriptor start, tgt;
-	TrackPath(ChemGraph& graph, ChemGraph::vertex_descriptor s, ChemGraph::vertex_descriptor t) :
-		g(graph), start(s), tgt(t){ }
+	bool pass_4546;
+	TrackPath(ChemGraph& graph, ChemGraph::vertex_descriptor s, ChemGraph::vertex_descriptor t, 
+		vector<pair<vd, int>>& dcsArr) :
+		g(graph), start(s), tgt(t), dcs(dcsArr)
+	{
+		pass_4546 = find_if(dcs.begin(), dcs.end(), [&](pair<vd,int> p){
+			return (p.first == start || p.first == tgt) && (p.second == 45 || p.second == 46);
+		}) == dcs.end();
+	}
 
 	template<typename Vertex>
 	void initialize_vertex(Vertex v, const ChemGraph&) const
 	{
-		//auto a = target(e, g);
 		g[v].path = 0;
 	}
 
@@ -144,6 +152,16 @@ struct TrackPath: public default_bfs_visitor {
 			g[d].path = NON_PASSABLE;
 		else if (g[d].code != C && d != tgt)
 			g[d].path = NON_PASSABLE;
+		else if(!pass_4546 && g[d].code == C)
+		{
+			bool hit4546 = find_if(dcs.begin(), dcs.end(), [d](pair<vd,int> p){
+				return p.first == d && (p.second == 45 || p.second == 46);
+			}) != dcs.end();
+			if(hit4546)
+				g[d].path = NON_PASSABLE;
+			else
+				g[d].path = g[s].path + 1;
+		}
 		else
 			g[d].path = g[s].path + 1;
 	}
@@ -211,12 +229,21 @@ struct FCSP::Impl{
 		CTab tab = readMol(inp);
 		graph = toGraph(tab);
 	}
+	// Очистить все переменные состояния кодировщика
+	void clear()
+	{
+		jsons.clear();
+		dcs.clear();
+		dcsAtoms.clear();
+		cycles.clear();
+		chains.clear();
+	}
 
 	void process(ostream& out)
 	{
-		jsons.clear();
-		locateDCs();
+		clear();
 		locateCycles();
+		locateDCs();
 		cyclic(out);
 		linear(out);
 		replacement(out);
@@ -247,8 +274,6 @@ struct FCSP::Impl{
 
 	void locateDCs()
 	{
-		dcs.clear();
-		dcsAtoms.clear();
 		auto vrtx = vertices(graph);
 		for (auto i = vrtx.first; i != vrtx.second; i++)
 		{
@@ -268,6 +293,39 @@ struct FCSP::Impl{
 				//out << *i << ": " << atomSymbol(j->second.center)
 				//		<< " DC:" << j->second.index << endl;
 				dcs.emplace_back(*i, j->dc);
+			}
+			if(graph[*i].code == C && !graph[*i].inAromaCycle)
+			{
+				// check for 45 & 46
+				auto edges = out_edges(*i, graph);
+				for (auto p = edges.first; p != edges.second; p++)
+				{
+					auto tgt = target(*p, graph);
+					if (graph[*p].type == 2 && graph[tgt].code == C && !graph[tgt].inAromaCycle)
+					{
+						auto tgt_edges = out_edges(tgt, graph);
+						auto cnt = count_if(tgt_edges.first, tgt_edges.second, [&](ed edge){
+							if(graph[edge].type == 2){
+								auto t2 = target(edge, graph);
+								if(graph[t2].code == C && !graph[t2].inAromaCycle)
+									return true;
+							}
+							return false;
+						});
+						if(cnt == 2) // 2 double links both with C - 45 DC
+						{ 
+							dcs.emplace_back(*i, 45);
+						}
+						else // only one double link
+						{
+							dcs.emplace_back(*i, 46);
+						}
+					}
+					else if (graph[*p].type == 3 && graph[tgt].code == C && !graph[tgt].inAromaCycle)
+					{
+						dcs.emplace_back(*i, 45);
+					}
+				}
 			}
 			auto range2 = make_pair(order2.begin(), order2.end());
 
@@ -312,6 +370,15 @@ struct FCSP::Impl{
 				}
 			}
 		}
+		sort(dcs.begin(), dcs.end(), [](const pair<vd, int>& a, const pair<vd, int>& b){
+			return a.second < b.second;
+		});
+		cerr << "DCs:" << endl;
+		for (auto& dc : dcs)
+		{
+			cerr << dc.first << " -DC-> " << dc.second << endl;
+		}
+		cerr << endl;
 		//cout << endl;
 	}
 
@@ -410,8 +477,6 @@ struct FCSP::Impl{
 
 	void locateCycles()
 	{
-		cycles.clear();
-		chains.clear();
 		depth_first_search(graph, markLoops(cycles), get(&Atom::color, graph));
 		for (auto & c : cycles)
 		{
@@ -523,15 +588,6 @@ struct FCSP::Impl{
 			using std::move;
 			chains.push_back(move(vc));
 		}
-		sort(dcs.begin(), dcs.end(), [](const pair<vd, int>& a, const pair<vd, int>& b){
-			return a.second < b.second;
-		});
-		cerr << "DCs:" << endl;
-		for (auto& dc : dcs)
-		{
-			cerr << dc.first << " -DC-> " << dc.second << endl;
-		}
-		cerr << endl;
 	}
 
 	void locateIrregular()
@@ -589,7 +645,7 @@ struct FCSP::Impl{
 			vd start = dcs[j].first;
 			vd end = dcs[i].first;
 			breadth_first_search(graph, start, buf,
-				TrackPath(graph, start, end), get(&Atom::color, graph));
+				TrackPath(graph, start, end, dcs), get(&Atom::color, graph));
 			
 			if (graph[dcs[i].first].path && graph[dcs[i].first].path < NON_PASSABLE)
 			{
