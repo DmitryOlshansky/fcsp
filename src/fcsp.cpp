@@ -667,14 +667,18 @@ struct FCSP::Impl{
 						coupled = true;
 					fragment.push_back((int)v);
 				});
-				int dc1 = dcs[i].second;
-				int dc2 = dcs[j].second;
+				int dc1 = dcs[i].second; // end
+				int dc2 = dcs[j].second; // start(!)
 				int len = graph[dcs[i].first].path - 1;
+				// SPECIAL case for 00 segment
+				if(len == 0)
+					coupled = true;
 				// SPECIAL RULE for DC = 41 
-				// if DC in C and not in aroma cycle then add 1 to length
-				if (graph[start].code.matches(C) && !graph[start].inAromaCycle)
+				// then add 1 to length
+				// Cannot generalize for all C not in aroma cycle 
+				if (graph[start].code.matches(C) && dc2 == 41 && !graph[start].inAromaCycle)
 					len += 1;
-				if (graph[end].code.matches(C) && !graph[end].inAromaCycle)
+				if (graph[end].code.matches(C) && dc1 == 41 && !graph[end].inAromaCycle)
 					len += 1;
 
 				stringstream buffer;
@@ -736,7 +740,7 @@ struct FCSP::Impl{
 			if (cycNum != p.first->cycNum)
 			{
 				//cout << "Cycle!" << endl;
-				static char tab[] = "ABCDEFGHK";
+				static string tab = "ABCDEFGHK";
 				cycCount++;
 				if (cycCount > 2)
 				{
