@@ -230,18 +230,18 @@ static bool wildMatch(int wildcard, int atom)
 	}
 }
 
-bool Code::matches(int code)const
+bool Code::matches(Code code)const
 {
 	if (index >= 0)
 	{
-		if (code >= 0)
-			return code == index;
+		if (code.index >= 0)
+			return code.index == index;
 		else
-			return wildMatch(code, index);
+			return wildMatch(code.index, index);
 	}
 	if (code < 0) //piElectrons(2, 0, wildcards, -, compare, exactly);
-		return code == index;
-	return wildMatch(index, code);
+		return code.index == index;
+	return wildMatch(index, code.index);
 }
 
 const string& Code::symbol()const

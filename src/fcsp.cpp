@@ -8,6 +8,7 @@
 #include <numeric>
 #include <iomanip>
 #include <set>
+#include <boost/graph/vf2_sub_graph_iso.hpp>
 #include "ullmann.h"
 #include "fcsp.hpp"
 #include "ctab.h"
@@ -40,6 +41,35 @@ void printJsArray(vector<int>& v, ostream& out)
 		out << v[i];
 	}
 	out << "]";
+}
+
+// Select 1-s from bool matrix so that 
+// there is at least one selected per row
+// and no more then one per column
+// Input:
+// matrix - bool matrix
+// selections : row idx --> col idx
+// cur - number of currently matching row
+bool pickChoices(const vector<bool>& matrix, size_t rows, size_t cols, vector<size_t>& selections, size_t cur=0)
+{
+	if(cur == rows)
+		return true;
+	for(size_t i=0; i<cols; i++)
+	{
+		if(matrix[cur*cols + i])
+		{
+			selections[cur] = i;
+			// not chosen before
+			if(find(selections.begin(), selections.begin()+cur, i) == selections.end())
+			{
+				if(pickChoices(matrix, rows, cols, selections, cur+1))
+					return true;
+				else
+					selections[cur] = -1; // reset and continue
+			}
+		}
+	}
+	return false;
 }
 
 inline bool couplingLink(int type)
@@ -306,7 +336,6 @@ struct FCSP::Impl{
 			if(graph[*i].code == C && !graph[*i].inAromaCycle)
 			{
 				// check for 45 & 46
-				auto edges = out_edges(*i, graph);
 				for (auto p = edges.first; p != edges.second; p++)
 				{
 					auto tgt = target(*p, graph);
@@ -336,44 +365,59 @@ struct FCSP::Impl{
 					}
 				}
 			}
+			// select a range of DCs pattern with center matching this atom
 			auto range2 = make_pair(order2.begin(), order2.end());
-
 			for (auto j = range2.first; j != range2.second; j++)
 			{
-				if (edges.second - edges.first != j->bonds.size())
+				if (edges.second - edges.first < j->bonds.size())
 					continue;
-				if (!j->center.matches(graph[*i].code.code()))
+				if (!j->center.matches(graph[*i].code))
 					continue;
-				//cout << "Matched CENTER " << j->center.symbol() << endl;
 				if (j->valence != valency)
 					continue;
-				vector<bool> matched(j->bonds.size());
+				cerr << "Candidate DC - CENTER " << j->center.symbol() << " VALENCE "<< valency << endl;
+				cerr << "DC:" << j->dc << endl;
+
 				vector<int> atoms; // atoms in this center
-				auto p = edges.first;
-				for (; p != edges.second; p++)
+				size_t cand_bnds = edges.second - edges.first;
+				size_t smpl_bnds = j->bonds.size();
+				// Put ones for combinations that match. A row per edge in a DC pattern (sample).
+				// Then we need to pick one in each row, if at least one row is all zeros - no match
+				// Same DC may happen twice in the same atom, but we don't accomodate for that (for now)
+				vector<bool> mappings(cand_bnds*smpl_bnds); 
+				cerr << "MAPPING:" <<endl;
+				cerr << "  ";
+				for(size_t k=0; k<cand_bnds; k++)
 				{
-					size_t k;
-					for (k = 0; k < j->bonds.size(); k++)
-					{
-						if (matched[k])
-							continue;
-						if (graph[*p].type != j->bonds[k].bondType)
-							continue;
-						auto v = target(*p, graph);
-						if (!j->bonds[k].atom.matches(graph[v].code.code()))
-							continue;
-						//cout << "   matched " << j->bonds[k].atom.symbol()
-						//	<< " vs " << graph[v].code.symbol() << endl;
-						atoms.push_back(v);
-						matched[k] = true;
-						break;
-					}
-					if (k == j->bonds.size())
-						break;
+					auto e = (edges.first+k);
+					auto t = target(*e, graph);
+					cerr << setw(2) << graph[t].code.symbol();
 				}
-				if (p == edges.second)
+				for(size_t p=0; p<smpl_bnds; p++)
 				{
-					//cout << "DONE." << endl;
+					cerr << endl << setw(2) << j->bonds[p].atom.symbol();
+					for(size_t q=0; q<cand_bnds; q++)
+					{
+						auto e = edges.first + q;
+						if(graph[*e].type == j->bonds[p].bondType)
+						{
+							auto t = target(*e, graph);
+							if(j->bonds[p].atom.matches(graph[t].code))
+								mappings[p*cand_bnds + q] = true;
+						}
+						cerr << setw(2) << mappings[p*cand_bnds + q];
+					}
+				}
+				cerr << endl;
+				vector<size_t> found_mapping(smpl_bnds); // sample idx --> candidate idx
+				if(pickChoices(mappings, smpl_bnds, cand_bnds, found_mapping))
+				{
+					for(auto idx : found_mapping)
+					{
+						// get atom by index of edge around this atom
+						auto t = target(*(edges.first + idx), graph);
+						atoms.push_back(t);
+					}
 					dcs.emplace_back(*i, j->dc);
 					dcsAtoms.insert(make_pair(*i, atoms));
 				}
@@ -1137,7 +1181,7 @@ struct FCSP::Impl{
 			vector<vector<pair<size_t, size_t>>> mappings;
 			auto& g = graph;
 			ullmann_all(r.piece, graph, [&](ChemGraph::vertex_descriptor a, ChemGraph::vertex_descriptor b){				
-				if(!r.piece[a].code.matches(g[b].code.code()))
+				if(!r.piece[a].code.matches(g[b].code))
 					return false;
 				if(a == r.a1 || a == r.a2){
 					if(g[b].inAromaCycle) // none of replacemnt dc are in aroma cycle (e.g. DC 41 is CH3)

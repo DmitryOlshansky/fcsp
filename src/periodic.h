@@ -69,11 +69,11 @@ struct Code {
 public:
 	Code() :index(-99999){}
 	//create/get from symbol code
-	explicit Code(int c);
+	Code(int c);
 	//create/get from symbol name
 	Code(const std::string& symbol);
 	//matches given index
-	bool matches(int code)const;
+	bool matches(Code code)const;
 	//ref to a symbol in a global table
 	const std::string& symbol()const;
 	int code()const{ return index; }
