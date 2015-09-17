@@ -160,9 +160,14 @@ struct TrackPath: public default_bfs_visitor {
 		vector<pair<vd, int>>& dcsArr) :
 		g(graph), start(s), tgt(t), dcs(dcsArr)
 	{
-		pass_4546 = find_if(dcs.begin(), dcs.end(), [&](pair<vd,int> p){
-			return (p.first == start || p.first == tgt) && (p.second == 45 || p.second == 46);
-		}) == dcs.end();
+		auto sdc = *find_if(dcs.begin(), dcs.end(), [&](pair<vd,int> p){
+			return p.first == start;
+		});
+		auto edc = *find_if(dcs.begin(), dcs.end(), [&](pair<vd,int> p){
+			return p.first == tgt;
+		});
+		pass_4546 = sdc.second != 45 && sdc.second != 46 && edc.second != 45 && edc.second != 46;
+		cerr << (pass_4546 ? "Passing" :"Not passing") <<" DC 45-46 while going "<<sdc.second << "-->"<<edc.second << endl; 
 	}
 
 	template<typename Vertex>
@@ -188,8 +193,18 @@ struct TrackPath: public default_bfs_visitor {
 			bool hit4546 = find_if(dcs.begin(), dcs.end(), [d](pair<vd,int> p){
 				return p.first == d && (p.second == 45 || p.second == 46);
 			}) != dcs.end();
+
 			if(hit4546)
+			{
+				auto sdc = *find_if(dcs.begin(), dcs.end(), [&](pair<vd,int> p){
+					return p.first == start;
+				});
+				auto edc = *find_if(dcs.begin(), dcs.end(), [&](pair<vd,int> p){
+					return p.first == tgt;
+				});
+				cerr << "Hit non-passable DC 45/46 while going " << sdc.second << "-->" << edc.second << endl;
 				g[d].path = NON_PASSABLE;
+			}
 			else
 				g[d].path = g[s].path + 1;
 		}

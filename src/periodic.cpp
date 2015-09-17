@@ -3,7 +3,6 @@
 #include <string>
 #include <algorithm>
 #include <unordered_map>
-
 #include "periodic.h"
 
 using namespace std;
@@ -239,7 +238,7 @@ bool Code::matches(Code code)const
 		else
 			return wildMatch(code.index, index);
 	}
-	if (code < 0) //piElectrons(2, 0, wildcards, -, compare, exactly);
+	if (code.index < 0) //piElectrons(2, 0, wildcards, -, compare, exactly);
 		return code.index == index;
 	return wildMatch(index, code.index);
 }
