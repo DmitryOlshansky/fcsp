@@ -188,7 +188,7 @@ struct TrackPath: public default_bfs_visitor {
 			g[d].path = NON_PASSABLE;
 		else if (g[d].code != C && d != tgt)
 			g[d].path = NON_PASSABLE;
-		else if(!pass_4546 && g[d].code == C)
+		else if(d != tgt && !pass_4546 && g[d].code == C)
 		{
 			bool hit4546 = find_if(dcs.begin(), dcs.end(), [d](pair<vd,int> p){
 				return p.first == d && (p.second == 45 || p.second == 46);
