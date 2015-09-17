@@ -59,8 +59,9 @@ bool pickChoices(const vector<bool>& matrix, size_t rows, size_t cols, vector<si
 		if(matrix[cur*cols + i])
 		{
 			selections[cur] = i;
+			auto end = selections.begin()+cur;
 			// not chosen before
-			if(find(selections.begin(), selections.begin()+cur, i) == selections.end())
+			if(find(selections.begin(), selections.begin()+cur, i) == end)
 			{
 				if(pickChoices(matrix, rows, cols, selections, cur+1))
 					return true;
@@ -375,8 +376,7 @@ struct FCSP::Impl{
 					continue;
 				if (j->valence != valency)
 					continue;
-				cerr << "Candidate DC - CENTER " << j->center.symbol() << " VALENCE "<< valency << endl;
-				cerr << "DC:" << j->dc << endl;
+				cerr << "Candidate DC "<< j->dc <<" CENTER " << j->center.symbol() << " VALENCE "<< valency << endl;
 
 				vector<int> atoms; // atoms in this center
 				size_t cand_bnds = edges.second - edges.first;
