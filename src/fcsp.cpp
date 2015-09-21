@@ -1091,15 +1091,12 @@ struct FCSP::Impl{
 	void cyclic(ostream& out)
 	{
 		// Кодирование простых циклов
-		// Оставить только ароматические?
 		for (auto c : chains)
 		{
 			int piE = 0;
-			if (graph[c.front()].inAromaCycle)
-			{
-				for (int v : c)
-					piE += graph[v].piE;
-			}
+			// NEW RULE - always output piE for singleton cycles and coupling linked systems
+			for (int v : c)
+				piE += graph[v].piE;
 			vector<pair<string, int>> hatoms;
 			for (int v : c)
 			{
@@ -1109,7 +1106,6 @@ struct FCSP::Impl{
 					hatoms.emplace_back(s, v);
 				}
 			}
-
 			auto pivot = min_element(hatoms.begin(), hatoms.end(), [](const pair<string, int> & lhs, const pair<string, int> &rhs){
 				return lhs.first < rhs.first;
 			});
