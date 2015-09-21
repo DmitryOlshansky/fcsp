@@ -9,7 +9,6 @@
 #include <iomanip>
 #include <set>
 #include <boost/graph/vf2_sub_graph_iso.hpp>
-#include "ullmann.h"
 #include "fcsp.hpp"
 #include "ctab.h"
 #include "descriptors.h"
@@ -210,6 +209,28 @@ struct TrackPath: public default_bfs_visitor {
 		}
 		else
 			g[d].path = g[s].path + 1;
+	}
+};
+
+// callback for VF2 algorithm
+struct CollectAsVectors{
+	ChemGraph& pattern;
+	vector<vector<size_t>>& mappings; // mapped atoms in the bigger graph
+
+	
+    CollectAsVectors(ChemGraph& pat, vector<vector<size_t>>& _mappings):pattern(pat), mappings(_mappings){}
+	template <typename CorrespondenceMap1To2,
+          typename CorrespondenceMap2To1>
+	bool operator()(CorrespondenceMap1To2 f, CorrespondenceMap2To1 g) const
+	{
+		auto vtx = vertices(pattern);
+		vector<size_t> in_big;
+		for(auto p=vtx.first; p != vtx.second; p++)
+		{
+			in_big.push_back(get(f, *p));
+		}
+		mappings.push_back(in_big);
+		return true;
 	}
 };
 
@@ -1201,17 +1222,6 @@ struct FCSP::Impl{
 		} while (!ccv.empty());
 	}
 
-	//find where repPos is mapped in mapping m
-	int mapVertex(size_t repPos, const vector<pair<size_t, size_t>>& m)
-	{
-		//locate mapping of 1st DC
-		auto dcVIt = find_if(m.begin(), m.end(), [repPos](const pair<size_t, size_t>& p){
-			return p.first == repPos;
-		});
-		assert(dcVIt != m.end()); // mapping must include it
-		return dcVIt->second;
-	}
-
 	// -1 if no descriptor present (just some non-H atom)
 	int mapDC(size_t dcV)
 	{
@@ -1232,28 +1242,32 @@ struct FCSP::Impl{
 		//cout << "REPLACEMENTS!" << endl;
 		for (auto& r : repls)
 		{
-			vector<vector<pair<size_t, size_t>>> mappings;
+			vector<vector<size_t>> mappings;
 			auto& g = graph;
-			ullmann_all(r.piece, graph, [&](ChemGraph::vertex_descriptor a, ChemGraph::vertex_descriptor b){				
-				if(!r.piece[a].code.matches(g[b].code))
-					return false;
-				if(a == r.a1 || a == r.a2){
-					if(g[b].inAromaCycle) // none of replacemnt dc are in aroma cycle (e.g. DC 41 is CH3)
+			
+			vf2_subgraph_iso(r.piece, g, CollectAsVectors(g, mappings), vertex_order_by_mult(r.piece),
+				vertices_equivalent([&](ChemGraph::vertex_descriptor a, ChemGraph::vertex_descriptor b){				
+					if(!r.piece[a].code.matches(g[b].code))
 						return false;
-					return find_if(dcs.begin(), dcs.end(), [&](pair<vd,size_t> dcp){
-						return dcp.first == b;
-					}) != dcs.end();
-				}
-				else
-					return true;
-			}, [&r, &g](ChemGraph::edge_descriptor a, ChemGraph::edge_descriptor b){
-				return r.piece[a].type == g[b].type;
-			}, mappings);
+					if(a == r.a1 || a == r.a2){
+						if(g[b].inAromaCycle) // none of replacemnt dc are in aroma cycle (e.g. DC 41 is CH3)
+							return false;
+						return find_if(dcs.begin(), dcs.end(), [&](pair<vd,size_t> dcp){
+							return dcp.first == b;
+						}) != dcs.end();
+					}
+					else
+						return true;
+				}).edges_equivalent(
+				[&r, &g](ChemGraph::edge_descriptor a, ChemGraph::edge_descriptor b){
+					return r.piece[a].type == g[b].type;
+				})
+			);
 			vector<pair<size_t, size_t>> used_pairs;
 			for (auto& m : mappings)
 			{
-				int fV = mapVertex(r.a1, m);
-				int sV = mapVertex(r.a2, m);
+				int fV = m[r.a1];
+				int sV = m[r.a2];
 				// check if this pair of vertices was used before
 				if (used_pairs.end() != find_if(used_pairs.begin(), used_pairs.end(), [fV, sV](const pair<size_t, size_t>& p){
 					return (p.first == fV && p.second == sV) || (p.first == sV && p.second == fV);
@@ -1272,7 +1286,7 @@ struct FCSP::Impl{
 				stringstream buffer;
 				vector<int> fragment;
 				for(auto& p : m)
-					fragment.push_back(p.first);
+					fragment.push_back(p);
 				addDescriptorAtoms(fragment, fV);
 				addDescriptorAtoms(fragment, sV);
 
