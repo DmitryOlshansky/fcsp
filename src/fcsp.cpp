@@ -73,11 +73,6 @@ bool pickChoices(const vector<bool>& matrix, size_t rows, size_t cols, vector<si
 	return false;
 }
 
-inline bool couplingLink(int type)
-{
-	return type != 1; // not a single link - aromatic or double, triple
-}
-
 struct markLoops : public dfs_visitor<>{
 	vector<pair<int,int>> path;
 	vector<vector<pair<int, int>>>& cycles;
@@ -285,12 +280,26 @@ struct FCSP::Impl{
 		chains.clear();
 	}
 
+	void sortDCs()
+	{
+		sort(dcs.begin(), dcs.end(), [](const pair<vd, int>& a, const pair<vd, int>& b){
+			return a.second < b.second;
+		});
+		cerr << "DCs:" << endl;
+		for (auto& dc : dcs)
+		{
+			cerr << dc.first << " -DC-> " << dc.second << endl;
+		}
+		cerr << endl;
+	}
+
 	void process(ostream& out)
 	{
 		clear();
 		locatePiElectrons();
 		locateDCs();
-		locateCycles();
+		locateCycles(); //add cyclic DCs
+		sortDCs();
 		cyclic(out);
 		linear(out);
 		replacement(out);
@@ -438,16 +447,6 @@ struct FCSP::Impl{
 				}
 			}
 		}
-		sort(dcs.begin(), dcs.end(), [](const pair<vd, int>& a, const pair<vd, int>& b){
-			return a.second < b.second;
-		});
-		cerr << "DCs:" << endl;
-		for (auto& dc : dcs)
-		{
-			cerr << dc.first << " -DC-> " << dc.second << endl;
-		}
-		cerr << endl;
-		//cout << endl;
 	}
 
 	template<class T>
