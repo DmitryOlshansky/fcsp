@@ -125,7 +125,19 @@ CTab readMol(Parser& parser)
 	for(;;)
 	{
 		auto s = parser.line();
-		if(s == "M  END" || parser.eof())
+		if(s.size() > 6 && s.substr(0, 6) == "M  CHG")
+		{
+			istringstream iss(s.substr(6)); // continue parsing
+			// FIXME: cross fingers and pray that charge and atom count doesn't go up to 100+
+			int a, b, c;
+			iss >> a >> b >> c;
+			b -= 1;
+			if(b >= tab.atoms.size() || b < 0)
+				error("bad charge record - atom number out of range");
+			tab.atoms[b].code.charge(c);
+			cerr << "Found charge on "<<tab.atoms[b].code.symbol()<< " = "<< c <<endl;
+		}
+		else if(s == "M  END" || parser.eof())
 			break;
 		// cout << "Skipping: " << s << endl;
 	}

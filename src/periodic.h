@@ -67,7 +67,7 @@ enum {
 //an atom or a template
 struct Code {
 public:
-	Code() :index(-99999){}
+	Code() :index(-99999), _charge(0){}
 	//create/get from symbol code
 	Code(int c);
 	//create/get from symbol name
@@ -77,6 +77,8 @@ public:
 	//ref to a symbol in a global table
 	const std::string& symbol()const;
 	int code()const{ return index; }
+	int charge()const{ return _charge; }
+	Code& charge(int chargeMod){ _charge = chargeMod; return *this; }
 	bool operator<(Code rhs)const{ return index < rhs.index; }
 	bool operator<=(Code rhs)const{ return index <= rhs.index; }
 	bool operator>(Code rhs)const{ return index > rhs.index; }
@@ -87,6 +89,7 @@ public:
 	bool operator!=(int rhs)const{ return index != rhs; }
 private:
 	int index; //index or wild-card
+	int _charge; // charge modifier
 };
 
 int countPiElectrons(Code c, int valence, int dualCnt, int tripleCnt);

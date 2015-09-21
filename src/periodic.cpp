@@ -231,15 +231,16 @@ static bool wildMatch(int wildcard, int atom)
 
 bool Code::matches(Code code)const
 {
+	//FIXME: re-enable strict matching with charge modifiers and fix any issues left
 	if (index >= 0)
 	{
 		if (code.index >= 0)
-			return code.index == index;
+			return code.index == index /*&& code.charge() == charge()*/;
 		else
 			return wildMatch(code.index, index);
 	}
 	if (code.index < 0) //piElectrons(2, 0, wildcards, -, compare, exactly);
-		return code.index == index;
+		return code.index == index /*&& code.charge() == charge()*/;
 	return wildMatch(index, code.index);
 }
 
