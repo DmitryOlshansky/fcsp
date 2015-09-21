@@ -267,8 +267,10 @@ pair<int,int> multiCount(ChemGraph& graph, ChemGraph::vertex_descriptor vertex)
 }
 
 struct FCSP::Impl{
-	Impl(std::vector<LevelOne> f, std::vector<LevelTwo> s, std::vector<Replacement> r) :
-		order1(std::move(f)), order2(std::move(s)), repls(std::move(r)){}
+	Impl(FCSPOptions opts) :
+		order1(std::move(opts.first)), order2(std::move(opts.second)), 
+		repls(std::move(opts.replacements)),
+		long41(opts.long41), format(opts.format){}
 
 	void load(istream& inp)
 	{
@@ -776,10 +778,10 @@ struct FCSP::Impl{
 						continue; // skip output - this is self-referental
 					}
 				}
-
-				if(start_dc == 41)
+				// SPECIAL CASE - "The long 41" rule
+				if(start_dc == 41 && long41)
 					len += 1;
-				if(end_dc == 41)
+				if(end_dc == 41 && long41)
 					len += 1;
 				stringstream buffer;
 				buffer << setfill('0') << setw(2) << start_dc
@@ -1291,6 +1293,8 @@ private:
 	std::vector<LevelOne> order1;
 	std::vector<LevelTwo> order2;
 	std::vector<Replacement> repls;
+	bool long41;
+	FCSPFMT format;
 	ChemGraph graph;
 	//location of DCs in 'graph' and their numeric value
 	vector<pair<vd, int>> dcs;
@@ -1305,8 +1309,8 @@ private:
 	vector<bool> intermap;
 };
 
-FCSP::FCSP(std::vector<LevelOne> first, std::vector<LevelTwo> second, std::vector<Replacement> repls) :
-	pimpl(new FCSP::Impl(std::move(first), std::move(second), std::move(repls))){}
+FCSP::FCSP(FCSPOptions opts) :
+	pimpl(new FCSP::Impl(std::move(opts))){}
 
 void FCSP::load(std::istream& inp)
 {

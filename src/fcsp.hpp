@@ -66,8 +66,22 @@ struct Replacement{
 	}
 };
 
+enum FCSPFMT {
+	JSON, // array of JSON arrays with pairs : (code,bindings)
+	CSV, // CSV - 2 columns: file-name,codes
+	TXT // TXT - line per file, whitespace separated codes
+};
+
+struct FCSPOptions{
+	std::vector<LevelOne> first;
+	std::vector<LevelTwo> second;
+	std::vector<Replacement> replacements;
+	bool long41;
+	FCSPFMT format;
+};
+
 struct FCSP {
-	FCSP(std::vector<LevelOne> first, std::vector<LevelTwo> second, std::vector<Replacement> replacements);
+	FCSP(FCSPOptions opts);
 	void load(std::istream& inp);
 	void dumpGraph(std::ostream& dot);
 	void process(std::ostream& out);

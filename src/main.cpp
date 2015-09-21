@@ -55,15 +55,28 @@ void processFile(FCSP& fcsp, const string& path, bool plot)
     }
 }
 
+FCSPFMT toFCSPFMT(string fmt)
+{
+	if(fmt == "json") return FCSPFMT::JSON;
+	if(fmt == "csv") return FCSPFMT::CSV;
+	if(fmt == "txt") return FCSPFMT::TXT;
+	throw logic_error("No such format "+fmt);
+}
+
 int main(int argc, const char* argv[])
 {
 	bool plot = false;
+	bool long41 = true;
 	string descriptors;
+	FCSPFMT fmt = FCSPFMT::JSON;
+
 	vector<string> inputs;
 	po::options_description visible("Options");
 	visible.add_options()
 		("help,h", po::bool_switch(), "Show help message.")
+		("long41", po::bool_switch(), "Enable old FCSS-2 treatment of DC #41 - adding +1 to the chain")
 		("plot,p", po::bool_switch(), "Dump Graph-viz dot of molecule.")
+		("format", po::value<string>(), "Choose output format: json - JSON with bindings (default), csv - CSV with just codes, txt - simple line-based format")
 		("descriptors,d", po::value<string>(), "Directory with descriptor database files.")
 		;
 	po::options_description implicit("Implicit options");
@@ -81,6 +94,10 @@ int main(int argc, const char* argv[])
 		if (vars.count("inputs"))
 		{
             inputs = vars["inputs"].as<vector<string>>();	
+		}
+		if (vars.count("format"))
+		{
+			fmt = toFCSPFMT(vars["format"].as<string>());
 		}
 		plot = vars.count("plot") ? vars["plot"].as<bool>() : false;
 		descriptors = vars.count("descriptors") ? vars["descriptors"].as<string>() : ".";
@@ -100,7 +117,6 @@ int main(int argc, const char* argv[])
         cout << "Unknown option '" << e.get_option_name() << "'\n";
         return 1;
     }
-    
     fs::path base(descriptors);
     ifstream descr1((base / "descr1.csv").c_str());
     if(!descr1){
@@ -120,7 +136,7 @@ int main(int argc, const char* argv[])
 		read1stOrder(descr1, order1);
 		read2ndOrder(descr2, order2);
 		readReplacements(repl, replacements);
-		FCSP fcsp(move(order1), move(order2), move(replacements));
+		FCSP fcsp(FCSPOptions{order1, order2, replacements, long41, fmt});
         if(inputs.empty()){
             fcsp.load(cin);
             fcsp.process(cout);
