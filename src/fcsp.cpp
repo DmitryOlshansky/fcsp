@@ -43,6 +43,11 @@ void printJsArray(vector<int>& v, ostream& out)
 	out << "]";
 }
 
+bool is_exclusive_dc(int dc)
+{
+	return dc == 45 || dc == 46; // these are impassable if one is part of chain
+}
+
 // Select 1-s from bool matrix so that 
 // there is at least one selected per row
 // and no more then one per column
@@ -296,9 +301,10 @@ struct FCSP::Impl{
 	void process(ostream& out)
 	{
 		clear();
+		addHydrogen();
 		locatePiElectrons();
-		locateDCs();
 		locateCycles(); //add cyclic DCs
+		locateDCs();
 		sortDCs();
 		cyclic(out);
 		linear(out);
@@ -542,6 +548,23 @@ struct FCSP::Impl{
 		return vc;
 	}
 
+	void addHydrogen()
+	{
+		auto vtx = vertices(graph);
+		for(auto p = vtx.first; p != vtx.second; p++)
+		{
+			if(graph[*p].code == C)
+			{
+				int cur_val = getValence(graph, *p); // FIXME: counts 1.5 as 4 but anyway
+				for(int i=cur_val; i<4; i++) // bump to 4 with Hs if less then 4
+				{
+					size_t v = add_vertex(Atom(0.0, 0.0, 0.0, Code(H)), graph);
+					add_edge(*p, v, Bound(1), graph);
+				}
+			}
+		}
+	}
+
 	void locateCycles()
 	{
 		depth_first_search(graph, markLoops(cycles), get(&Atom::color, graph));
@@ -724,10 +747,10 @@ struct FCSP::Impl{
 				if(start_dc == 41) // check only the first 
 				{
 					bool check = true;
-					applyPath(start, end, [g, &check, &coupled, &fragment](vd v){
+					applyPath(start, end, [g, end, &check, &coupled, &fragment](vd v){
 						if(check)
 						{
-							if (g[v].code.matches(C) && g[v].piE == 0)
+							if (v != end && g[v].code.matches(C) && g[v].piE == 0)
 								coupled = false;
 							check = false;
 						}
@@ -736,13 +759,28 @@ struct FCSP::Impl{
 				}
 				else
 				{
-					applyPath(start, end, [g, &coupled, &fragment](vd v){
-						if (g[v].code.matches(C) && g[v].piE == 0)
+					applyPath(start, end, [g, end, &coupled, &fragment](vd v){
+						if (v != end && g[v].code.matches(C) && g[v].piE == 0)
 							coupled = false;
 						fragment.push_back((int)v);
 					});
 				}
 				int len = graph[end].path - 1;
+				//SPECIAL CASE - TODO verifiy correctness
+				if(len == 0)
+					coupled = true;
+				if (len == 0 && is_exclusive_dc(start_dc) && start_dc == end_dc)
+				{
+					if(g[edge(start, end, g).first].type > 1) // connected with non-single link
+					{
+						continue; // skip output - this is self-referental
+					}
+				}
+
+				if(start_dc == 41)
+					len += 1;
+				if(end_dc == 41)
+					len += 1;
 				stringstream buffer;
 				buffer << setfill('0') << setw(2) << start_dc
 					<< setfill('0') << setw(2) << len
