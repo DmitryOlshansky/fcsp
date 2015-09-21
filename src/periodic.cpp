@@ -240,7 +240,7 @@ bool Code::matches(Code code)const
 			return wildMatch(code.index, index);
 	}
 	if (code.index < 0) //piElectrons(2, 0, wildcards, -, compare, exactly);
-		return code.index == index /*&& code.charge() == charge()*/;
+		return code.index == index;
 	return wildMatch(index, code.index);
 }
 
