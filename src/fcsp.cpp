@@ -706,43 +706,47 @@ struct FCSP::Impl{
 	void linear(ostream& out)
 	{
 		queue<vd> buf;
+		// DCs are sorted as a[0] < .. < a[n-1]
 		for (size_t i = 0; i < dcs.size(); i++)
 		for (size_t j = i  + 1; j < dcs.size(); j++)
 		{
-			vd start = dcs[j].first;
-			vd end = dcs[i].first;
+			vd start = dcs[i].first;
+			vd end = dcs[j].first;
+			int start_dc = dcs[i].second;
+			int end_dc = dcs[j].second;
 			breadth_first_search(graph, start, buf,
 				TrackPath(graph, start, end, dcs), get(&Atom::color, graph));
-			
-			if (graph[dcs[i].first].path && graph[dcs[i].first].path < NON_PASSABLE)
+			if (graph[end].path && graph[end].path < NON_PASSABLE)
 			{
-				bool coupled = false;
+				bool coupled = true; //0-length path is therefore coupled (FIXME: check PI el-s too)
 				auto &g = graph;
 				vector<int> fragment;
-				applyPath(start, end, [g, &coupled,&fragment](vd v){
-					//cout << "Apply: " << g[v].code.symbol() << endl;
-					if (g[v].code.matches(C) && g[v].piE > 0)
-						coupled = true;
-					fragment.push_back((int)v);
-				});
-				int dc1 = dcs[i].second; // end
-				int dc2 = dcs[j].second; // start(!)
-				int len = graph[dcs[i].first].path - 1;
-				// SPECIAL case for 00 segment
-				if(len == 0)
-					coupled = true;
-				// SPECIAL RULE for DC = 41 
-				// then add 1 to length
-				// Cannot generalize for all C not in aroma cycle 
-				if (graph[start].code.matches(C) && dc2 == 41 && !graph[start].inAromaCycle)
-					len += 1;
-				if (graph[end].code.matches(C) && dc1 == 41 && !graph[end].inAromaCycle)
-					len += 1;
-
+				if(start_dc == 41) // check only the first 
+				{
+					bool check = true;
+					applyPath(start, end, [g, &check, &coupled, &fragment](vd v){
+						if(check)
+						{
+							if (g[v].code.matches(C) && g[v].piE == 0)
+								coupled = false;
+							check = false;
+						}
+						fragment.push_back((int)v);
+					});
+				}
+				else
+				{
+					applyPath(start, end, [g, &coupled, &fragment](vd v){
+						if (g[v].code.matches(C) && g[v].piE == 0)
+							coupled = false;
+						fragment.push_back((int)v);
+					});
+				}
+				int len = graph[end].path - 1;
 				stringstream buffer;
-				buffer << setfill('0') << setw(2) << dc1
+				buffer << setfill('0') << setw(2) << start_dc
 					<< setfill('0') << setw(2) << len
-					<< setfill('0') << setw(2) << dc2
+					<< setfill('0') << setw(2) << end_dc
 					<< (coupled ? 1 : 0);
 				addDescriptorAtoms(fragment, dcs[i].first);
 				addDescriptorAtoms(fragment, dcs[j].first);
