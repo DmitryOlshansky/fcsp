@@ -585,6 +585,15 @@ struct FCSP::Impl{
 					add_edge(*p, v, Bound(1), graph);
 				}
 			}
+			else if(graph[*p].code == O && graph[*p].code.charge() == 0)
+			{
+				int cur_val = getValence(graph, *p); // FIXME: counts 1.5 as 4 but anyway
+				for(int i=cur_val; i<2; i++) // bump to 4 with Hs if less then 4
+				{
+					size_t v = add_vertex(Atom(0.0, 0.0, 0.0, Code(H)), graph);
+					add_edge(*p, v, Bound(1), graph);
+				}
+			}
 		}
 	}
 
@@ -1222,19 +1231,15 @@ struct FCSP::Impl{
 		} while (!ccv.empty());
 	}
 
-	// -1 if no descriptor present (just some non-H atom)
-	int mapDC(size_t dcV)
+	// return all descriptors at dcV vertex
+	vector<int> mapDCs(size_t dcV)
 	{
-		auto dcIt = find_if(dcs.begin(), dcs.end(), [dcV](const pair<size_t, int> & p){
-			return p.first == dcV;
-		});
-		if (dcIt == dcs.end())
-		{
-			//debug warning
-			cerr << "Mapped replacement but first DC has no match" << endl;
-			return -1;
+		vector<int> dc_nums;
+		for(auto p : dcs){
+			if(p.first == dcV)
+				dc_nums.push_back(p.second);
 		}
-		return dcIt->second;
+		return dc_nums;
 	}
 
 	void replacement(ostream& out)
@@ -1263,38 +1268,47 @@ struct FCSP::Impl{
 					return r.piece[a].type == g[b].type;
 				})
 			);
-			vector<pair<size_t, size_t>> used_pairs;
+			vector<pair<pair<int, int>, pair<int, int>>> used_pairs;
 			for (auto& m : mappings)
 			{
 				int fV = m[r.a1];
-				int sV = m[r.a2];
-				// check if this pair of vertices was used before
-				if (used_pairs.end() != find_if(used_pairs.begin(), used_pairs.end(), [fV, sV](const pair<size_t, size_t>& p){
-					return (p.first == fV && p.second == sV) || (p.first == sV && p.second == fV);
-				}))
+				int sV = m[r.a2];				
+				// check if this pair of vertex-DC pairs was used before
+				auto fdc = mapDCs(fV);
+				if (fdc.size() == 0)
 					continue;
-				int fdc = mapDC(fV);
-				if (fdc < 0)
+				auto sdc = mapDCs(sV);
+				if (sdc.size() == 0)
 					continue;
-				int sdc = mapDC(sV);
-				if (sdc < 0)
-					continue;
-				used_pairs.emplace_back(fV, sV);
-				// the usual rule of smaller DC first
-				if (fdc > sdc)
-					swap(fdc, sdc);
-				stringstream buffer;
-				vector<int> fragment;
-				for(auto& p : m)
-					fragment.push_back(p);
-				addDescriptorAtoms(fragment, fV);
-				addDescriptorAtoms(fragment, sV);
+				for(auto f : fdc)
+				for(auto s : sdc)
+				{
+					auto firstDC = f;
+					auto secondDC = s;
+					auto firstV = fV;
+					auto secondV = sV;
+					if(f > s){
+						swap(firstDC, secondDC);
+						swap(firstV, secondV);
+					}
+					auto check_val = make_pair(make_pair(firstV, firstDC), make_pair(secondV,secondDC));
+					//if (find(used_pairs.begin(), used_pairs.end(),check_val) != used_pairs.end()) 
+					//	continue;
+					used_pairs.emplace_back(make_pair(firstV, firstDC), make_pair(secondV,secondDC));
+					// the usual rule of smaller DC first
+					stringstream buffer;
+					vector<int> fragment;
+					for(auto& p : m)
+						fragment.push_back(p);
+					addDescriptorAtoms(fragment, fV);
+					addDescriptorAtoms(fragment, sV);
 
-				buffer << setfill('0') << setw(2) << fdc
-					<< setfill('0') << setw(2) << r.dc
-					<< setfill('0') << setw(2) << sdc
-					<< r.coupling;
-				outputJs(buffer.str(), fragment);
+					buffer << setfill('0') << setw(2) << firstDC
+						<< setfill('0') << setw(2) << r.dc
+						<< setfill('0') << setw(2) << secondDC
+						<< r.coupling;
+					outputJs(buffer.str(), fragment);
+				}
 			}
 		}
 	}
