@@ -321,7 +321,7 @@ struct FCSP::Impl{
 		cerr << endl;
 	}
 
-	void process(ostream& out)
+	void process(ostream& out, string filename)
 	{
 		clear();
 		addHydrogen();
@@ -332,7 +332,7 @@ struct FCSP::Impl{
 		cyclic(out);
 		linear(out);
 		replacement(out);
-		outputWhole();
+		outputWhole(out, filename);
 	}
 
 	void dumpGraph(ostream& out)
@@ -353,11 +353,11 @@ struct FCSP::Impl{
 		}
 		else if(format == FCSPFMT::CSV || format == FCSPFMT::TXT)
 		{
-			outPieces.push_back(s.str());
+			outPieces.push_back(code);
 		}
 	}
 
-	void outputWhole()
+	void outputWhole(ostream& out, string filename)
 	{
 		if(format == FCSPFMT::JSON)
 		{
@@ -1375,9 +1375,9 @@ void FCSP::dumpGraph(std::ostream& dot)
 	pimpl->dumpGraph(dot);
 }
 
-void FCSP::process(std::ostream& out)
+void FCSP::process(std::ostream& out, string filename)
 {
-	pimpl->process(out);
+	pimpl->process(out, filename);
 }
 
 FCSP::~FCSP(){}

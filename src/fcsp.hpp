@@ -7,6 +7,7 @@
 #pragma once
 
 #include <vector>
+#include <string>
 #include <iostream>
 #include <memory>
 #include <boost/graph/adjacency_list.hpp>
@@ -85,7 +86,7 @@ struct FCSP {
 	FCSP(FCSPOptions opts);
 	void load(std::istream& inp);
 	void dumpGraph(std::ostream& dot);
-	void process(std::ostream& out);
+	void process(std::ostream& out, std::string filename="");
 	~FCSP();
 private:
 	struct Impl;

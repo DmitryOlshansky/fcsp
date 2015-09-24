@@ -23,8 +23,6 @@ void readReplacements(ifstream& inp, vector<Replacement>& repls)
 		int dc = lexical_cast<int>(sdf.props["DC"][0]);
 		int couple = lexical_cast<int>(sdf.props["COUPLING"][0]);
 		repls.emplace_back(toGraph(sdf.mol), dc, couple);
-		/*ofstream out(lexical_cast<string>(repls.size())+".dot");
-		dumpGraph(repls.back().piece, out);*/
 	});
 }
 
@@ -42,7 +40,7 @@ void processFile(FCSP& fcsp, const string& path, bool plot)
             ofstream dot(path+".dot");
             fcsp.dumpGraph(dot);
         }
-        fcsp.process(cout);
+        fcsp.process(cout, path);
     }
     catch(std::exception &e)
     {
@@ -137,7 +135,8 @@ int main(int argc, const char* argv[])
             fcsp.process(cout);
         }
 		else
-            for(auto& arg : inputs) processFile(fcsp, arg, plot);
+            for(auto& arg : inputs)
+            	processFile(fcsp, arg, plot);
 	}
 	catch(std::exception& e)
 	{
