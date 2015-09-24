@@ -5,8 +5,6 @@
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/filesystem.hpp>
-#include "boost/iostreams/stream.hpp"
-#include "boost/iostreams/device/null.hpp"
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
@@ -15,11 +13,8 @@
 
 using namespace std;
 using boost::lexical_cast;
-namespace bio = boost::iostreams;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-
-bio::stream<bio::null_sink> nullOstream((bio::null_sink()));
 
 void readReplacements(ifstream& inp, vector<Replacement>& repls)
 {

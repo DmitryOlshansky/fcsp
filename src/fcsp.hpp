@@ -18,17 +18,18 @@
 #include "ctab.h"
 #include "descriptors.h"
 
-struct Atom{
-	double x, y, z;
+struct AtomVertex{
 	Code code;
-	boost::default_color_type color; //used by DFS algorithm
+// temporaries for DFS that is used to find linear descriptors
+	boost::default_color_type color;
 	int path;
-	int valence;
-	int piE;
-	bool inAromaCycle; //part of aromatic cycle
-	Atom(){}
-	Atom(double x_, double y_, double z_, Code code_) :
-		x(x_), y(y_), z(z_), code(code_), path(0), inAromaCycle(false){}
+// deduced as part of FCSP algorithm
+	int valence; // effective valence
+	int piE; // number of PI-electrons
+	bool inAromaCycle; // is part of aromatic cycle?
+	AtomVertex(){}
+	AtomVertex(Code code_):
+		code(code_), path(0), valence(0), piE(0), inAromaCycle(false){}
 };
 
 struct Bound{
@@ -37,7 +38,7 @@ struct Bound{
 	Bound(int type_) :type(type_){}
 };
 
-typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS, Atom, Bound> ChemGraph;
+typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS, AtomVertex, Bound> ChemGraph;
 
 struct Replacement{
 	ChemGraph piece;

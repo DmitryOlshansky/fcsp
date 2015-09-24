@@ -139,7 +139,7 @@ ChemGraph toGraph(CTab& tab)
 	//add_vertex
 	for_each(tab.atoms.begin(), tab.atoms.end(), [&graph](const AtomEntry& a)
 	{
-		add_vertex(Atom(a.x, a.y, a.z, a.code), graph);
+		add_vertex(AtomVertex(a.code), graph);
 	});
 	auto vrange = vertices(graph);
 	//add edges
@@ -501,12 +501,12 @@ struct FCSP::Impl{
 			int trippleLinks;
 		};
 		Entry table[] = {
-			{ 'M', Code(N), 0, 1, 1, 0 },
-			{ 'N', Code(N), 0, 2, 0, 0 },
-			{ 'Q', Code(O), 2, 0, 0, 0 },
-			{ 'R', Code(O), 3, 0, 0, 0 },
-			{ 'T', Code(S), 0, 1, 1, 0 },
-			{ 'S', Code(S), 2, 2, 0, 0 }
+			{ 'M', N, 0, 1, 1, 0 },
+			{ 'N', N, 0, 2, 0, 0 },
+			{ 'Q', O, 2, 0, 0, 0 },
+			{ 'R', O, 3, 0, 0, 0 },
+			{ 'T', S, 0, 1, 1, 0 },
+			{ 'S', S, 2, 2, 0, 0 }
 		};
 		char c = 0;
 		for (auto& e : table)
@@ -532,7 +532,7 @@ struct FCSP::Impl{
 			return string();
 	}
 
-	static bool heteroatom(const Atom& atom)
+	static bool heteroatom(const AtomVertex& atom)
 	{
 		return !atom.code.matches(C) && !atom.code.matches(H);
 	}
@@ -581,7 +581,7 @@ struct FCSP::Impl{
 				int cur_val = getValence(graph, *p); // FIXME: counts 1.5 as 4 but anyway
 				for(int i=cur_val; i<4; i++) // bump to 4 with Hs if less then 4
 				{
-					size_t v = add_vertex(Atom(0.0, 0.0, 0.0, Code(H)), graph);
+					size_t v = add_vertex(AtomVertex(H), graph);
 					add_edge(*p, v, Bound(1), graph);
 				}
 			}
@@ -590,7 +590,7 @@ struct FCSP::Impl{
 				int cur_val = getValence(graph, *p); // FIXME: counts 1.5 as 4 but anyway
 				for(int i=cur_val; i<2; i++) // bump to 4 with Hs if less then 4
 				{
-					size_t v = add_vertex(Atom(0.0, 0.0, 0.0, Code(H)), graph);
+					size_t v = add_vertex(AtomVertex(H), graph);
 					add_edge(*p, v, Bound(1), graph);
 				}
 			}
@@ -599,7 +599,7 @@ struct FCSP::Impl{
 
 	void locateCycles()
 	{
-		depth_first_search(graph, markLoops(cycles), get(&Atom::color, graph));
+		depth_first_search(graph, markLoops(cycles), get(&AtomVertex::color, graph));
 		for (auto & c : cycles)
 		{
 			transform(c.begin(), c.end(), c.begin(), [](const pair<int, int> &p){ 
@@ -770,7 +770,7 @@ struct FCSP::Impl{
 			int start_dc = dcs[i].second;
 			int end_dc = dcs[j].second;
 			breadth_first_search(graph, start, buf,
-				TrackPath(graph, start, end, dcs), get(&Atom::color, graph));
+				TrackPath(graph, start, end, dcs), get(&AtomVertex::color, graph));
 			if (graph[end].path && graph[end].path < NON_PASSABLE)
 			{
 				bool coupled = true; //0-length path is therefore coupled (FIXME: check PI el-s too)

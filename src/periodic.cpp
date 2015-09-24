@@ -49,22 +49,22 @@ struct PiElectrons{
 	{
 		return code < rhs.code || (code == rhs.code && valence < rhs.valence);
 	}
-	PiElectrons(int c, int val, int no_bonds, int one_dual, int two_dual, int one_tripple) :
-		code(c), valence(val), no_multi_bonds(no_bonds), one_dual_bond(one_dual), two_dual_bonds(two_dual), one_triple_bond(one_tripple){}
+	PiElectrons(Code c, int val, int no_bonds, int one_dual, int two_dual, int one_tripple) :
+		code(c.code()), valence(val), no_multi_bonds(no_bonds), one_dual_bond(one_dual), two_dual_bonds(two_dual), one_triple_bond(one_tripple){}
 };
 
 //
 vector<PiElectrons> electrons;
 
-static void piElectrons(int c, int val, int no_bonds, int one_dual, int two_dual, int one_tripple)
+static void piElectrons(Code c, int val, int no_bonds, int one_dual, int two_dual, int one_tripple)
 {
 	PiElectrons pie(c, val, no_bonds, one_dual, two_dual, one_tripple);
 	auto place = lower_bound(electrons.begin(), electrons.end(), pie);
 	electrons.insert(place, pie);
 }
 
-struct Module{
-	Module(){
+struct AtomStringsInit{
+	AtomStringsInit(){
 		create("H");
 		create("C");
 		create("Li");
@@ -124,6 +124,72 @@ struct Module{
 		create("Bi");
 		createWild("Z");
 		createWild("R");
+	}
+};
+
+static AtomStringsInit strings_init_;
+// generated strongly-typed table of atom symbols
+// should be after StringsInit init;
+
+Code H(H_code);
+Code C(C_code);
+Code Li(Li_code);
+Code Be(Be_code);
+Code B(B_code);
+Code N(N_code);
+Code O(O_code);
+Code F(F_code);
+Code Na(Na_code);
+Code Mg(Mg_code);
+Code Al(Al_code);
+Code Si(Si_code);
+Code P(P_code);
+Code S(S_code);
+Code Cl(Cl_code);
+Code K(K_code);
+Code Ca(Ca_code);
+Code Sc(Sc_code);
+Code Ti(Ti_code);
+Code V(V_code);
+Code Cr(Cr_code);
+Code Mn(Mn_code);
+Code Fe(Fe_code);
+Code Co(Co_code);
+Code Ni(Ni_code);
+Code Cu(Cu_code);
+Code Zn(Zn_code);
+Code Ga(Ga_code);
+Code Ge(Ge_code);
+Code As(As_code);
+Code Se(Se_code);
+Code Br(Br_code);
+Code Rb(Rb_code);
+Code Sr(Sr_code);
+Code Y(Y_code);
+Code Zr(Zr_code);
+Code Nb(Nb_code);
+Code Mo(Mo_code);
+Code Tc(Tc_code);
+Code Ru(Ru_code);
+Code Rh(Rh_code);
+Code Pb(Pb_code);
+Code Ag(Ag_code);
+Code Cd(Cd_code);
+Code In(In_code);
+Code Sn(Sn_code);
+Code Sb(Sb_code);
+Code Te(Te_code);
+Code I(I_code);
+Code Ba(Ba_code);
+Code W(W_code);
+Code Pt(Pt_code);
+Code Au(Au_code);
+Code Hg(Hg_code);
+Code Tl(Tl_code);
+Code Bi(Bi_code);
+
+struct PiElectronsInit{
+	PiElectronsInit(){
 		piElectrons(H, 1, 0, -1, -1, -1);
 		piElectrons(Li, 1, 0, -1, -1, -1);
 		piElectrons(Be, 2, 2, -1, -1, -1);
@@ -193,7 +259,7 @@ struct Module{
 	}
 };
 
-static Module init_;
+static PiElectronsInit piels_init_;
 
 Code::Code(const string& sym)
 {
@@ -219,10 +285,10 @@ Code::Code(int code)
 static bool wildMatch(int wildcard, int atom)
 {
 	switch (wildcard){
-	case Z:
+	case Z_code:
 		return true;
-	case R:
-		return atom != H;
+	case R_code:
+		return atom != H_code;
 	default:
 		assert(false);
 		return false;
@@ -251,7 +317,7 @@ const string& Code::symbol()const
 
 PiElectrons* locatePiElectrons(Code c, int val)
 {
-	PiElectrons needle(c.code(), val, 0, 0, 0, 0);
+	PiElectrons needle(c, val, 0, 0, 0, 0);
 	auto it = lower_bound(electrons.begin(), electrons.end(), needle);
 	if (it == electrons.end() || it->code != c.code())
 		return nullptr;
@@ -271,6 +337,5 @@ int countPiElectrons(Code c, int valence, int dualCnt, int tripleCnt)
 		return pie->two_dual_bonds;
 	if (dualCnt == 1 && tripleCnt == 0)
 		return pie->one_dual_bond;
-	//TODO: add debug trace here
-	return 0;
+	assert(false);
 }
