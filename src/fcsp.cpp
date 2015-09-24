@@ -301,7 +301,7 @@ struct FCSP::Impl{
 	// Очистить все переменные состояния кодировщика
 	void clear()
 	{
-		jsons.clear();
+		outPieces.clear();
 		dcs.clear();
 		dcsAtoms.clear();
 		cycles.clear();
@@ -332,14 +332,7 @@ struct FCSP::Impl{
 		cyclic(out);
 		linear(out);
 		replacement(out);
-		out << "[";
-		for(size_t i=0; i<jsons.size();i++){
-			if(i != 0)
-				out << ", ";
-			out << jsons[i];
-		}
-		out << "]";
-		out << endl;
+		outputWhole();
 	}
 
 	void dumpGraph(ostream& out)
@@ -347,14 +340,49 @@ struct FCSP::Impl{
 		::dumpGraph(graph, out);
 	}
 
-	void outputJs(string code, vector<int>& atoms)
+	void outputPiece(string code, vector<int>& atoms)
 	{
-		stringstream s;
-		s << "{" << "\"code\" : \""<<code<<"\",";
-		s << "\"place\": ";
-		printJsArray(atoms, s); 
-		s << "}";
-		jsons.push_back(s.str());
+		if(format == FCSPFMT::JSON)
+		{
+			stringstream s;
+			s << "{" << "\"code\" : \""<<code<<"\",";
+			s << "\"place\": ";
+			printJsArray(atoms, s); 
+			s << "}";
+			outPieces.push_back(s.str());
+		}
+		else if(format == FCSPFMT::CSV || format == FCSPFMT::TXT)
+		{
+			outPieces.push_back(s.str());
+		}
+	}
+
+	void outputWhole()
+	{
+		if(format == FCSPFMT::JSON)
+		{
+			out << "[";
+			for(size_t i=0; i<outPieces.size();i++)
+			{
+				if(i != 0)
+					out << ", ";
+				out << outPieces[i];
+			}
+			out << "]";
+			out << endl;
+		}
+		else if(format == FCSPFMT::CSV || format == FCSPFMT::TXT)
+		{
+			if(format == FCSPFMT::CSV)
+				out << filename << ';';
+			for(size_t i=0; i<outPieces.size();i++)
+			{
+				if(i != 0)
+					out << " ";
+				out << outPieces[i];
+			}
+			out << endl;
+		}
 	}
 
 	void locatePiElectrons()
@@ -820,7 +848,7 @@ struct FCSP::Impl{
 					<< (coupled ? 1 : 0);
 				addDescriptorAtoms(fragment, dcs[i].first);
 				addDescriptorAtoms(fragment, dcs[j].first);
-				outputJs(buffer.str(), fragment);
+				outputPiece(buffer.str(), fragment);
 			}
 		}
 	}
@@ -1059,7 +1087,7 @@ struct FCSP::Impl{
 		for(auto cc : ccv){
 			fragment.insert(fragment.end(), chains[cc].begin(), chains[cc].end());
 		}
-		outputJs(buffer.str(), fragment);
+		outputPiece(buffer.str(), fragment);
 	}
 
 	void recursePoly(vector<int>& poly, map<int, vector<int>>& adj_list, set<vector<int>>& used)
@@ -1160,7 +1188,7 @@ struct FCSP::Impl{
 				}
 				buffer << (left_descr < right_descr ? left_descr : right_descr);
 			}
-			outputJs(buffer.str(), fragment);
+			outputPiece(buffer.str(), fragment);
 		}
 		//make a map of intersections
 		intermap.resize(cycles.size()*cycles.size());
@@ -1307,7 +1335,7 @@ struct FCSP::Impl{
 						<< setfill('0') << setw(2) << r.dc
 						<< setfill('0') << setw(2) << secondDC
 						<< r.coupling;
-					outputJs(buffer.str(), fragment);
+					outputPiece(buffer.str(), fragment);
 				}
 			}
 		}
@@ -1324,7 +1352,7 @@ private:
 	vector<pair<vd, int>> dcs;
 	map<vd, vector<int>> dcsAtoms; // extra atoms that belong to each DC  
 	//
-	vector<string> jsons;
+	vector<string> outPieces;
 	//sorted arrays of edges - basic cycles
 	vector<vector<pair<int, int>>> cycles;
 	//same basic cycles represented as chains of vertices
