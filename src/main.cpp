@@ -29,6 +29,7 @@ void readReplacements(ifstream& inp, vector<Replacement>& repls)
 void processFile(FCSP& fcsp, const string& path, bool plot)
 {
     cerr << "Reading " << path << endl;
+    fs::path fpath(path);
     ifstream f(path);
     if(!f){
         cerr << "ERROR: cannot open '" << path << "'\n";
@@ -40,7 +41,7 @@ void processFile(FCSP& fcsp, const string& path, bool plot)
             ofstream dot(path+".dot");
             fcsp.dumpGraph(dot);
         }
-        fcsp.process(cout, path);
+        fcsp.process(cout, fpath.filename().string());
     }
     catch(std::exception &e)
     {

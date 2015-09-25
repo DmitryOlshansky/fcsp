@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+# -*- encoding: UTF-8 -*-
+#
+# Qualitative and quantative comparison of FCSS code strings (smart diffing of CSV files)
+#
+import csv
+import sys
+
+def error(msg):
+	print msg
+	sys.exit(1)
+
+if len(sys.argv) < 3:
+	error("Usage: ./fcsp-comp [-i] <original.csv> <new.csv>")
+
+try:
+	ignore_count = sys.argv.index('-i')
+	sys.argv = sys.argv[0:ignore_count-1]+sys.argv[ignore_count:]
+	ignore_count = True
+except:
+	ignore_count = False
+
+
+with file(sys.argv[1], "rb") as left:
+	with file(sys.argv[2], "rb") as right:
+		leftData = list(csv.reader(left, delimiter=';'))
+		rightData = list(csv.reader(right, delimiter=';'))
+
+def to_freq(codes):
+	freq = {}
+	for c in codes:
+		if c not in freq:
+			freq[c] = 1
+		else:
+			freq[c] += 1
+	return freq
+
+def codes_to_set(s):
+	freq = to_freq(s.strip().split())
+	ret = []
+	for (k,v) in freq.items():
+		ret.append("%s-x%s" % (k,v))
+	return set(ret)
+
+def strip_counts(s):
+	return set([c[:-3] for c in s])
+
+for i in range(len(leftData)):
+	left = leftData[i]
+	mol = left[0]
+	try:
+		right = next(rdta for rdta in rightData if rdta[0] == mol)
+	except:
+		error("MOL filename mismatch at line %d" % i)
+
+	codesL = codes_to_set(leftData[i][1])
+	codesR = codes_to_set(right[1])
+	print "================="
+	print " ".join(codesL)
+	print "====== vs ======"
+	print " ".join(codesR)
+	print "================="
+	if ignore_count:
+		codesL = strip_counts(codesL)
+		codesR = strip_counts(codesR)
+	if codesL != codesR:
+		deltaL = list(codesL - codesR)
+		if len(deltaL) > 0:
+			print "%s --- " % mol, " ".join(deltaL)
+		deltaR = list(codesR - codesL)
+		if len(deltaR) > 0:
+			print "%s +++ " % mol, " ".join(deltaR)
+	print "================="

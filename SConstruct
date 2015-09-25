@@ -16,5 +16,6 @@ elif env['CXX'] == 'g++' or env['CXX'] == 'clang++':
 env.Append(CCFLAGS=copts)
 libs = ["boost_program_options", "boost_system", "boost_filesystem"]
 src = Glob("src/*.cpp")
-prog = env.Program('fcsp', src, LIBS=libs);
+prog = env.Program('fcss-2a', src, LIBS=libs);
 env.Alias("install", env.Install(os.path.join(prefix, "bin"), prog))
+env.Alias("install", env.Install(os.path.join(prefix, "bin"), 'fcss-comp'))
