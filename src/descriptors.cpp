@@ -42,9 +42,10 @@ void read1stOrder(istream& inp, vector<LevelOne> &dest)
 void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 {
 	vector<SDF> sdf = readSdf(inp);
-	for (auto& rec : sdf)
+	for (size_t i=0; i<sdf.size(); i++)
 	{
-		auto & b = rec.mol.bounds;
+		auto& rec = sdf[i];
+		auto& b = rec.mol.bounds;
 		int center = 1;
 		//atom with index 1 as center for 2 atom patterns
 		if (rec.mol.atoms.size() > 2)
@@ -72,15 +73,24 @@ void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 			else
 				links.emplace_back(rec.mol.atoms[e.a1 - 1].code, e.type);
 		});
-		//TODO: check AA key
-		for_each(rec.props["DC"].begin(), rec.props["DC"].end(), [&dest, c, valency, &links](string s){
-			stringstream str(s);
-			int dc;
-			str >> dc;
-			LevelTwo t(c, valency, links, dc);
-			auto lb = lower_bound(begin(dest), end(dest), t);
-			dest.insert(lb, t);
-		});
+		int replOnly = 0; // default to commonly usable DC
+		if(rec.props.find("REPLONLY") != rec.props.end())
+		{
+			stringstream str2(rec.props["REPLONLY"].front());
+			str2 >> replOnly;
+		}
+		if(rec.props.find("DC") == rec.props.end())
+			LOG(ERROR) << "No DC found for level-2 pattern #"<<i<<endline;
+		else
+			for_each(rec.props["DC"].begin(), rec.props["DC"].end(), 
+			[&dest, replOnly, c, valency, &links](string s){
+				stringstream str(s);
+				int dc;
+				str >> dc;
+				LevelTwo t(c, valency, replOnly, links, dc);
+				auto lb = lower_bound(begin(dest), end(dest), t);
+				dest.insert(lb, t);
+			});
 	}
 	
 	for (auto &e : dest)

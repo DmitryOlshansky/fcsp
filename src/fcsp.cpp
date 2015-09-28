@@ -330,11 +330,13 @@ struct FCSP::Impl{
 		addHydrogen();
 		locatePiElectrons();
 		locateCycles(); //add cyclic DCs
-		locateDCs();
+		locateDCs(false);
 		locateIrregular();
 		sortDCs();
 		cyclic(out);
 		linear(out);
+		//locateDCs(true); // REPL-only DCs - 44 so far
+		//sortDCs();
 		replacement(out);
 		outputWhole(out, filename);
 	}
@@ -404,7 +406,7 @@ struct FCSP::Impl{
 		}
 	}
 
-	void locateDCs()
+	void locateDCs(bool replOnly)
 	{
 		auto vrtx = vertices(graph);
 		for (auto i = vrtx.first; i != vrtx.second; i++)
@@ -415,8 +417,6 @@ struct FCSP::Impl{
 			auto range = equal_range(order1.begin(), order1.end(), t);
 			for (auto j = range.first; j != range.second; ++j)
 			{
-				//out << *i << ": " << atomSymbol(j->second.center)
-				//		<< " DC:" << j->second.index << endline;
 				dcs.emplace_back(*i, j->dc);
 			}
 			if(graph[*i].code == C && !graph[*i].inAromaCycle)
@@ -455,6 +455,8 @@ struct FCSP::Impl{
 			auto range2 = make_pair(order2.begin(), order2.end());
 			for (auto j = range2.first; j != range2.second; j++)
 			{
+				if(j->replOnly != replOnly) // can't use at during this stage
+					continue;
 				if (edges.second - edges.first < j->bonds.size())
 					continue;
 				if (!j->center.matches(graph[*i].code))
