@@ -335,8 +335,8 @@ struct FCSP::Impl{
 		sortDCs();
 		cyclic(out);
 		linear(out);
-		//locateDCs(true); // REPL-only DCs - 44 so far
-		//sortDCs();
+		locateDCs(true); // REPL-only DCs - 44 so far
+		sortDCs();
 		replacement(out);
 		outputWhole(out, filename);
 	}
@@ -415,39 +415,42 @@ struct FCSP::Impl{
 			auto edges = out_edges(*i, graph);
 			LevelOne t(graph[*i].code, valency, 0);
 			auto range = equal_range(order1.begin(), order1.end(), t);
-			for (auto j = range.first; j != range.second; ++j)
+			if(!replOnly) // skip level-1 DCs and 45-46 for repl-only DCs
 			{
-				dcs.emplace_back(*i, j->dc);
-			}
-			if(graph[*i].code == C && !graph[*i].inAromaCycle)
-			{
-				// check for 45 & 46
-				for (auto p = edges.first; p != edges.second; p++)
+				for (auto j = range.first; j != range.second; ++j)
 				{
-					auto tgt = target(*p, graph);
-					if (graph[*p].type == 2 && graph[tgt].code == C && !graph[tgt].inAromaCycle)
+					dcs.emplace_back(*i, j->dc);
+				}
+				if(graph[*i].code == C && !graph[*i].inAromaCycle)
+				{
+					// check for 45 & 46
+					for (auto p = edges.first; p != edges.second; p++)
 					{
-						auto tgt_edges = out_edges(tgt, graph);
-						auto cnt = count_if(tgt_edges.first, tgt_edges.second, [&](ed edge){
-							if(graph[edge].type == 2){
-								auto t2 = target(edge, graph);
-								if(graph[t2].code == C && !graph[t2].inAromaCycle)
-									return true;
+						auto tgt = target(*p, graph);
+						if (graph[*p].type == 2 && graph[tgt].code == C && !graph[tgt].inAromaCycle)
+						{
+							auto tgt_edges = out_edges(tgt, graph);
+							auto cnt = count_if(tgt_edges.first, tgt_edges.second, [&](ed edge){
+								if(graph[edge].type == 2){
+									auto t2 = target(edge, graph);
+									if(graph[t2].code == C && !graph[t2].inAromaCycle)
+										return true;
+								}
+								return false;
+							});
+							if(cnt == 2) // 2 double links both with C - 45 DC
+							{ 
+								dcs.emplace_back(*i, 45);
 							}
-							return false;
-						});
-						if(cnt == 2) // 2 double links both with C - 45 DC
-						{ 
+							else // only one double link
+							{
+								dcs.emplace_back(*i, 46);
+							}
+						}
+						else if (graph[*p].type == 3 && graph[tgt].code == C && !graph[tgt].inAromaCycle)
+						{
 							dcs.emplace_back(*i, 45);
 						}
-						else // only one double link
-						{
-							dcs.emplace_back(*i, 46);
-						}
-					}
-					else if (graph[*p].type == 3 && graph[tgt].code == C && !graph[tgt].inAromaCycle)
-					{
-						dcs.emplace_back(*i, 45);
 					}
 				}
 			}
@@ -455,8 +458,10 @@ struct FCSP::Impl{
 			auto range2 = make_pair(order2.begin(), order2.end());
 			for (auto j = range2.first; j != range2.second; j++)
 			{
-				if(j->replOnly != replOnly) // can't use at during this stage
+				if(j->replOnly != replOnly) // can't use during this stage
 					continue;
+				if(j->replOnly)
+					LOG(FATAL) << "Found REPL-ONLY: "<< j->dc << endline;
 				if (edges.second - edges.first < j->bonds.size())
 					continue;
 				if (!j->center.matches(graph[*i].code))
