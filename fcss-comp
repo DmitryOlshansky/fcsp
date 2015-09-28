@@ -3,11 +3,12 @@
 #
 # Qualitative and quantative comparison of FCSS code strings (smart diffing of CSV files)
 #
+from __future__ import print_function
 import csv
 import sys
 
 def error(msg):
-	print msg
+	print(msg, file=sys.stderr)
 	sys.exit(1)
 
 if len(sys.argv) < 3:
@@ -20,11 +21,13 @@ try:
 except:
 	ignore_count = False
 
-
-with file(sys.argv[1], "rb") as left:
-	with file(sys.argv[2], "rb") as right:
-		leftData = list(csv.reader(left, delimiter=';'))
-		rightData = list(csv.reader(right, delimiter=';'))
+try:
+	with file(sys.argv[1], "rb") as left:
+		with file(sys.argv[2], "rb") as right:
+			leftData = list(csv.reader(left, delimiter=';'))
+			rightData = list(csv.reader(right, delimiter=';'))
+except IOError as e:
+	error(e)
 
 def to_freq(codes):
 	freq = {}
@@ -45,6 +48,10 @@ def codes_to_set(s):
 def strip_counts(s):
 	return set([c[:-3] for c in s])
 
+# summary stats
+surplas = 0
+deficit = 0
+
 for i in range(len(leftData)):
 	left = leftData[i]
 	mol = left[0]
@@ -55,19 +62,24 @@ for i in range(len(leftData)):
 
 	codesL = codes_to_set(leftData[i][1])
 	codesR = codes_to_set(right[1])
-	print "================="
-	print " ".join(codesL)
-	print "====== vs ======"
-	print " ".join(codesR)
-	print "================="
+	print("=================")
+	print(" ".join(codesL))
+	print("====== vs ======")
+	print(" ".join(codesR))
+	print("=================")
 	if ignore_count:
 		codesL = strip_counts(codesL)
 		codesR = strip_counts(codesR)
 	if codesL != codesR:
 		deltaL = list(codesL - codesR)
 		if len(deltaL) > 0:
-			print "%s --- " % mol, " ".join(deltaL)
+			print("%s --- " % mol, " ".join(deltaL))
 		deltaR = list(codesR - codesL)
 		if len(deltaR) > 0:
-			print "%s +++ " % mol, " ".join(deltaR)
-	print "================="
+			print("%s +++ " % mol, " ".join(deltaR))
+		deficit += len(deltaL)
+		surplas += len(deltaR)
+	print("=================")
+print("===== SUMMARY ====")
+print("MISSING: %s" % deficit)
+print("EXTRA: %s" % surplas)

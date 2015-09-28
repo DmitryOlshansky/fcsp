@@ -65,6 +65,8 @@ static void piElectrons(Code c, int val, int no_bonds, int one_dual, int two_dua
 
 struct AtomStringsInit{
 	AtomStringsInit(){
+		// order must match that of periodic
+		// TODO: fix all of this statically with 'X-macro technique'
 		create("H");
 		create("C");
 		create("Li");
@@ -124,6 +126,7 @@ struct AtomStringsInit{
 		create("Bi");
 		createWild("Z");
 		createWild("R");
+		createWild("X");
 	}
 };
 
@@ -287,6 +290,8 @@ static bool wildMatch(int wildcard, int atom)
 	switch (wildcard){
 	case Z_code:
 		return true;
+	case X_code:
+		return atom != O_code;
 	case R_code:
 		return atom != H_code;
 	default:

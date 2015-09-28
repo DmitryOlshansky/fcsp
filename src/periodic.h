@@ -60,9 +60,9 @@ enum {
 	Tl_code,
 	Bi_code,
 //wild cards
-	Z_code = -1, //anything
-	R_code = -2, //anything but H
-	X_code = -3
+	Z_code = -1, // anything
+	R_code = -2, // anything but H
+	X_code = -3  // anything but O
 };
 
 // An atom or a template a-la ^
