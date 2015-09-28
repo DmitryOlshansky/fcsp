@@ -12,6 +12,7 @@
 #include "fcsp.hpp"
 #include "ctab.h"
 #include "descriptors.h"
+#include "log.hpp"
 
 enum { NON_PASSABLE = 10000 };
 using namespace std;
@@ -20,13 +21,13 @@ using namespace boost;
 using vd = ChemGraph::vertex_descriptor;
 using ed = ChemGraph::edge_descriptor;
 
-void printCycle(vector<pair<int, int>>& v)
+void logCycle(vector<pair<int, int>>& v)
 {
 	for (auto & e : v)
 	{
-		cerr << e.first << "--" << e.second << endl;
+		LOG(DEBUG) << e.first << "--" << e.second << endline;
 	}
-	cerr << endl;
+	LOG(DEBUG) << endline;
 }
 
 void printJsArray(vector<int>& v, ostream& out)
@@ -93,7 +94,7 @@ struct markLoops : public dfs_visitor<>{
 			path.pop_back();
 		}
 		path.emplace_back(a, b);
-		cerr << a << "-->" << b << endl;
+		LOG(TRACE) << a << "-->" << b << endline;
 	}
 
 	template<class Edge, class Graph>
@@ -102,7 +103,7 @@ struct markLoops : public dfs_visitor<>{
 		auto a = source(e, g);
 		auto b = target(e, g);
 		auto c = make_pair((int)b, (int)a);
-		cerr << a << "++>" << b << endl;
+		LOG(TRACE) << a << "++>" << b << endline;
 		if (find_if(path.begin(), path.end(), [c](const pair<int, int> &p){
 			return p.first == c.first && p.second == c.second;
 		}) == path.end())
@@ -116,10 +117,10 @@ struct markLoops : public dfs_visitor<>{
 			});
 			vector<pair<int, int>> v{ start, path.begin()+len };
 			v.emplace_back(a, b);
-			cerr << "~~~~~" << endl;
-			printCycle(v);
+			LOG(DEBUG) << "~~~~~" << endline;
+			logCycle(v);
 			cycles.push_back(std::move(v));
-			cerr << "*****" << endl;
+			LOG(DEBUG) << "*****" << endline;
 		}
 	}
 };
@@ -166,7 +167,8 @@ struct TrackPath: public default_bfs_visitor {
 			return p.first == tgt;
 		});
 		pass_4546 = sdc.second != 45 && sdc.second != 46 && edc.second != 45 && edc.second != 46;
-		cerr << (pass_4546 ? "Passing" :"Not passing") <<" DC 45-46 while going "<<sdc.second << "-->"<<edc.second << endl; 
+		LOG(DEBUG) << (pass_4546 ? "Passing" :"Not passing") <<" DC 45-46 while going "
+			<< sdc.second << "-->"<< edc.second << endline; 
 	}
 
 	template<typename Vertex>
@@ -180,7 +182,7 @@ struct TrackPath: public default_bfs_visitor {
 	{
 		auto d = target(e, g);
 		auto s = source(e, g);
-		//cout << s << "-->" << d << endl;
+		//cout << s << "-->" << d << endline;
 		if (g[d].inAromaCycle && d != tgt) //all paths  of aromatic cycle  are inpassable
 			g[d].path = NON_PASSABLE;
 		else if (g[d].inAromaCycle && g[s].inAromaCycle)
@@ -201,7 +203,8 @@ struct TrackPath: public default_bfs_visitor {
 				auto edc = *find_if(dcs.begin(), dcs.end(), [&](pair<vd,int> p){
 					return p.first == tgt;
 				});
-				cerr << "Hit non-passable DC 45/46 while going " << sdc.second << "-->" << edc.second << endl;
+				LOG(DEBUG) << "Hit non-passable DC 45/46 while going " 
+					<< sdc.second << "-->" << edc.second << endline;
 				g[d].path = NON_PASSABLE;
 			}
 			else
@@ -313,12 +316,12 @@ struct FCSP::Impl{
 		sort(dcs.begin(), dcs.end(), [](const pair<vd, int>& a, const pair<vd, int>& b){
 			return a.second < b.second;
 		});
-		cerr << "DCs:" << endl;
+		LOG(DEBUG) << "Sorted DCs:" << endline;
 		for (auto& dc : dcs)
 		{
-			cerr << dc.first << " -DC-> " << dc.second << endl;
+			LOG(DEBUG) << dc.first << " -DC-> " << dc.second << endline;
 		}
-		cerr << endl;
+		LOG(DEBUG) << endline;
 	}
 
 	void process(ostream& out, string filename)
@@ -328,6 +331,7 @@ struct FCSP::Impl{
 		locatePiElectrons();
 		locateCycles(); //add cyclic DCs
 		locateDCs();
+		locateIrregular();
 		sortDCs();
 		cyclic(out);
 		linear(out);
@@ -369,7 +373,7 @@ struct FCSP::Impl{
 				out << outPieces[i];
 			}
 			out << "]";
-			out << endl;
+			out << endline;
 		}
 		else if(format == FCSPFMT::CSV || format == FCSPFMT::TXT)
 		{
@@ -381,7 +385,7 @@ struct FCSP::Impl{
 					out << " ";
 				out << outPieces[i];
 			}
-			out << endl;
+			out << endline;
 		}
 	}
 
@@ -412,7 +416,7 @@ struct FCSP::Impl{
 			for (auto j = range.first; j != range.second; ++j)
 			{
 				//out << *i << ": " << atomSymbol(j->second.center)
-				//		<< " DC:" << j->second.index << endl;
+				//		<< " DC:" << j->second.index << endline;
 				dcs.emplace_back(*i, j->dc);
 			}
 			if(graph[*i].code == C && !graph[*i].inAromaCycle)
@@ -457,7 +461,7 @@ struct FCSP::Impl{
 					continue;
 				if (j->valence != valency)
 					continue;
-				cerr << "Candidate DC "<< j->dc <<" CENTER " << j->center.symbol() << " VALENCE "<< valency << endl;
+				LOG(DEBUG) << "Candidate DC "<< j->dc <<" CENTER " << j->center.symbol() << " VALENCE "<< valency << endline;
 
 				vector<int> atoms; // atoms in this center
 				size_t cand_bnds = edges.second - edges.first;
@@ -466,17 +470,17 @@ struct FCSP::Impl{
 				// Then we need to pick one in each row, if at least one row is all zeros - no match
 				// Same DC may happen twice in the same atom, but we don't accomodate for that (for now)
 				vector<bool> mappings(cand_bnds*smpl_bnds); 
-				cerr << "MAPPING:" <<endl;
-				cerr << "  ";
+				LOG(TRACE) << "MAPPING:" <<endline;
+				LOG(TRACE) << "  ";
 				for(size_t k=0; k<cand_bnds; k++)
 				{
 					auto e = (edges.first+k);
 					auto t = target(*e, graph);
-					cerr << setw(2) << graph[t].code.symbol();
+					LOG(TRACE) << setw(2) << graph[t].code.symbol();
 				}
 				for(size_t p=0; p<smpl_bnds; p++)
 				{
-					cerr << endl << setw(2) << j->bonds[p].atom.symbol();
+					LOG(TRACE) << endline << setw(2) << j->bonds[p].atom.symbol();
 					for(size_t q=0; q<cand_bnds; q++)
 					{
 						auto e = edges.first + q;
@@ -486,10 +490,10 @@ struct FCSP::Impl{
 							if(j->bonds[p].atom.matches(graph[t].code))
 								mappings[p*cand_bnds + q] = true;
 						}
-						cerr << setw(2) << mappings[p*cand_bnds + q];
+						LOG(TRACE) << setw(2) << mappings[p*cand_bnds + q];
 					}
 				}
-				cerr << endl;
+				LOG(TRACE) << endline;
 				vector<size_t> found_mapping(smpl_bnds); // sample idx --> candidate idx
 				if(pickChoices(mappings, smpl_bnds, cand_bnds, found_mapping))
 				{
@@ -635,8 +639,8 @@ struct FCSP::Impl{
 			});
 			sort(c.begin(), c.end(), edge_less());
 		}
-		cerr << "BEFORE SPLIT" << endl;
-		for_each(cycles.begin(), cycles.end(), &printCycle);
+		LOG(DEBUG) << "BEFORE SPLIT" << endline;
+		for_each(cycles.begin(), cycles.end(), &logCycle);
 		vector<pair<int, int>> t, t2, uc, xc;
 		//TODO: need some solid proof and potentially incorrect in complex cases:
 		// what happens after 2 cycles are replaced with XOR or U of original pair?
@@ -668,9 +672,9 @@ struct FCSP::Impl{
 				result[m++] = make_pair(lenX, &xc);
 			for (int k = 0; k < m; k++)
 			{
-				cerr << result[k].first << " ";
+				LOG(TRACE) << result[k].first << " ";
 			}
-			cerr << endl;
+			LOG(TRACE) << endline;
 			sort(result, result + m, [](pair<size_t, vector<pair<int, int>>*> a, pair<size_t, vector<pair<int, int>>*> b){
 				return a.first < b.first;
 			});
@@ -680,30 +684,30 @@ struct FCSP::Impl{
 				continue; //same cycles have won
 			auto n1 = *result[1].second;
 			auto n2 = *result[0].second;
-			cerr << n1.size() << " " << n2.size() << endl;
+			LOG(TRACE) << n1.size() << " " << n2.size() << endline;
 			c1 = n1;
 			c2 = n2;
 		}
-		cerr << "AFTER SPLIT" << endl;
-		for_each(cycles.begin(), cycles.end(), &printCycle);
+		LOG(DEBUG) << "AFTER SPLIT" << endline;
+		for_each(cycles.begin(), cycles.end(), &logCycle);
 		for (auto ic : cycles)
 		{
 			assert(ic.size() > 2);
 			auto vc = cycleToChain(ic, [](const pair<int, int>& p){ return p; });
-			cerr << "CHAIN: ";
+			LOG(TRACE) << "CHAIN: ";
 			for (int k : vc)
-				cerr << k << " - ";
-			cerr << endl;
+				LOG(TRACE) << k << " - ";
+			LOG(TRACE) << endline;
 			auto& g = graph;
 			int piEl = 0;
 			for_each(vc.begin(), vc.end(), [&g, &piEl](int n){
-				cerr << "Atom # " << n << " " << g[n].code.symbol() << " pi E = " << g[n].piE << endl;
+				LOG(TRACE) << "Atom # " << n << " " << g[n].code.symbol() << " pi E = " << g[n].piE << endline;
 				if (g[n].piE > 0)
 					piEl += g[n].piE;
 				//TODO: add debug trace for < 0
 			});
 			bool aromatic = ((piEl - 2) % 4 == 0);
-			cerr << "PI E " << piEl << " aromatic? : " << aromatic << endl;
+			LOG(TRACE) << "PI E " << piEl << " aromatic? : " << aromatic << endline;
 			//assign cyclic-only DC
 			if (aromatic)
 			{
@@ -740,7 +744,7 @@ struct FCSP::Impl{
 		}
 	}
 
-	void locateIrregular()
+	void locateIrregular() //  TODO: rewrite
 	{
 		/*for (auto& r : irregularTempl)
 		{
@@ -768,7 +772,7 @@ struct FCSP::Impl{
 		fn(current);
 		while (current != start)
 		{
-			//cout << graph[current].path << " -->" << endl;
+			//cout << graph[current].path << " -->" << endline;
 			auto nearby = adjacent_vertices(current, graph);
 			auto i = nearby.first;
 			for (; i != nearby.second; i++)
@@ -886,7 +890,7 @@ struct FCSP::Impl{
 		int prevEdgeNum = 0; //edge count tracked on previous cycle
 		size_t cycCount = 0; //first 2 are output as is, 3rd, 4th and so on need prefixes
 		//for (auto& p : common)
-		//	cout << p.e.first << ":" << p.e.second << endl;
+		//	cout << p.e.first << ":" << p.e.second << endline;
 		auto v1 = chainAt(commonCh, fIdx);
 		for (int j = dir; ; j+= dir)
 		{
@@ -895,11 +899,11 @@ struct FCSP::Impl{
 			v1 = v2;
 			auto p = equal_range(common.begin(), common.end(), Edge(edge, 0));
 			assert(p.first != p.second);
-			//cout << "Go with " << p.first->e.first << ":" << p.first->e.second << endl;
+			//cout << "Go with " << p.first->e.first << ":" << p.first->e.second << endline;
 			edgeNum++;
 			if (cycNum != p.first->cycNum)
 			{
-				//cout << "Cycle!" << endl;
+				//cout << "Cycle!" << endline;
 				static string tab = "ABCDEFGHK";
 				cycCount++;
 				if (cycCount > 2)
@@ -994,7 +998,7 @@ struct FCSP::Impl{
 			}
 			intercounts[n] = c;
 		}
-		// cout << ccv.size() << endl;
+		// cout << ccv.size() << endline;
 		//Выбираем стартовый цикл - минимальный по числу пересечений (крайний), минимальный по числу элементов
 		//ищем сразу 2 стартовых цикла, на случай, где они одинково хорошо подходят
 		auto& cys = cycles;
@@ -1211,7 +1215,7 @@ struct FCSP::Impl{
 			{
 				cout << intermap[i*cycles.size() + j];
 			}
-			cout << endl;
+			cout << endline;
 		}*/
 		//
 		vector<int> ccv; //chain - indices of cycles
@@ -1272,7 +1276,7 @@ struct FCSP::Impl{
 
 	void replacement(ostream& out)
 	{
-		//cout << "REPLACEMENTS!" << endl;
+		//cout << "REPLACEMENTS!" << endline;
 		for (auto& r : repls)
 		{
 			vector<vector<size_t>> mappings;

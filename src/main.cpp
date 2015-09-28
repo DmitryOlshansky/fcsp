@@ -10,6 +10,7 @@
 #include <fstream>
 #include "fcsp.hpp"
 #include "ctab.h"
+#include "log.hpp"
 
 using namespace std;
 using boost::lexical_cast;
@@ -28,11 +29,11 @@ void readReplacements(ifstream& inp, vector<Replacement>& repls)
 
 void processFile(FCSP& fcsp, const string& path, bool plot)
 {
-    cerr << "Reading " << path << endl;
+    LOG(INFO) << "Reading " << path << endline;
     fs::path fpath(path);
     ifstream f(path);
     if(!f){
-        cerr << "ERROR: cannot open '" << path << "'\n";
+        LOG(ERROR) << "ERROR: cannot open '" << path << "'\n";
         return;
     }
     try{
@@ -45,7 +46,7 @@ void processFile(FCSP& fcsp, const string& path, bool plot)
     }
     catch(std::exception &e)
     {
-        cerr << e.what() << endl;
+        LOG(ERROR) << e.what() << endline;
     }
 }
 
@@ -70,6 +71,7 @@ int main(int argc, const char* argv[])
 		("help,h", po::bool_switch(), "Show help message.")
 		("long41", po::bool_switch(), "Enable old FCSS-2 treatment of DC #41 - adding +1 to the chain")
 		("plot,p", po::bool_switch(), "Dump Graph-viz dot of molecule.")
+		("verbosity,v", po::value<int>(), "Set verbosity level (0-6).")
 		("format", po::value<string>(), "Choose output format: json - JSON with bindings (default), csv - CSV with just codes, txt - simple line-based format")
 		("descriptors,d", po::value<string>(), "Directory with descriptor database files.")
 		;
@@ -93,33 +95,37 @@ int main(int argc, const char* argv[])
 		{
 			fmt = toFCSPFMT(vars["format"].as<string>());
 		}
+		if (vars.count("verbosity"))
+		{
+			logLevel = vars["verbosity"].as<int>();
+		}
 		plot = vars.count("plot") ? vars["plot"].as<bool>() : false;
 		descriptors = vars.count("descriptors") ? vars["descriptors"].as<string>() : ".";
 	}
 	catch(const po::invalid_command_line_syntax &e) {
         switch (e.kind()) {
         case po::invalid_syntax::missing_parameter:
-            cout << "Missing argument for option '" << e.tokens() << "'.\n";
+            cerr << "Missing argument for option '" << e.tokens() << "'.\n";
             break;
         default:
-            cout << "Syntax error: " << (int)e.kind() << "\n";
+            cerr << "Syntax error: " << (int)e.kind() << "\n";
             break;
         };
         return 1;
     }
     catch (const po::unknown_option &e) {
-        cout << "Unknown option '" << e.get_option_name() << "'\n";
+        cerr << "Unknown option '" << e.get_option_name() << "'\n";
         return 1;
     }
     fs::path base(descriptors);
     ifstream descr1((base / "descr1.csv").c_str());
     if(!descr1){
-    	cerr << "Failed to open descr1.csv, check your -d option" << endl;
+    	cerr << "Failed to open descr1.csv, check your -d option" << endline;
     	return 1;
     }
     ifstream descr2((base / "descr2.sdf").c_str());
     if(!descr2){
-		cerr << "Failed to open descr2.sdf, check -d option" << endl;
+		cerr << "Failed to open descr2.sdf, check -d option" << endline;
 		return 1;
 	}
 	ifstream repl((base / "replacement.sdf").c_str());
@@ -141,7 +147,7 @@ int main(int argc, const char* argv[])
 	}
 	catch(std::exception& e)
 	{
-		cerr << e.what() << endl;
+		cerr << e.what() << endline;
 	}
 	return 0;
 }

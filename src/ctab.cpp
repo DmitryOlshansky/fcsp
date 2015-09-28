@@ -9,6 +9,7 @@
 #include <string.h>
 #include "ctab.h"
 #include "parser.h"
+#include "log.hpp"
 
 using namespace std;
 
@@ -19,7 +20,7 @@ void error(const string& msg)
 
 void warning(const string& msg)
 {
-	cerr << msg.c_str() << endl;
+	LOG(WARN) << msg.c_str() << endline;
 }
 
 const char* fetchSpec(const char* fmt, FormatSpec& spec)
@@ -135,11 +136,11 @@ CTab readMol(Parser& parser)
 			if(b >= tab.atoms.size() || b < 0)
 				error("bad charge record - atom number out of range");
 			tab.atoms[b].code.charge(c);
-			cerr << "Found charge on "<<tab.atoms[b].code.symbol()<< " = "<< c <<endl;
+			LOG(INFO) << "Found charge on "<<tab.atoms[b].code.symbol()<< " = "<< c <<endline;
 		}
 		else if(s == "M  END" || parser.eof())
 			break;
-		// cout << "Skipping: " << s << endl;
+		// cout << "Skipping: " << s << endline;
 	}
 	return tab;
 }
@@ -152,7 +153,7 @@ CTab readMol(istream& inp)
 
 void writefln(ostream& out, const char* fmt)
 {
-	out << fmt << endl;
+	out << fmt << endline;
 }
 
 template<class A>
@@ -195,7 +196,7 @@ void writefln(ostream& out, const char* fmt, F front, T... tail)
 
 void writeMol(CTab& tab, ostream& out)
 {
-	out << tab.name << endl << tab.descr << endl << tab.comment << endl;
+	out << tab.name << endline << tab.descr << endline << tab.comment << endline;
 	//aaabbblllfffcccsssxxxrrrpppiiimmmvvvvvv
 	writefln(out, "aaabbblllfffcccsssxxxrrrpppiiimmmvvvvvv", 
 		tab.atoms.size(), tab.bounds.size(), tab.atomLists, 
@@ -209,7 +210,7 @@ void writeMol(CTab& tab, ostream& out)
 	{
 		writefln(out, "111222tttsssxxxrrrccc", e.a1, e.a2, e.type, 0, 0, 0, 0);
 	}
-	out << "M  END" << endl;
+	out << "M  END" << endline;
 }
 
 vector<SDF> readSdf(Parser& parser)

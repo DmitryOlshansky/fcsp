@@ -1,10 +1,10 @@
 #include <algorithm>
 #include <string>
 #include <sstream>
-#include <iostream>
 #include "descriptors.h"
 #include "parser.h"
 #include "ctab.h"
+#include "log.hpp"
 
 using namespace std;
 
@@ -18,7 +18,7 @@ void read1stOrder(istream& inp, vector<LevelOne> &dest)
 		string valency = parser.quotedString();
 		stringstream dcStr(parser.line()); //rest of the line
 		int dc;
-		//cout << valency << endl;
+		//cout << valency << endline;
 		dcStr >> dc;
 		Code code(sym);
 		stringstream str(valency);
@@ -36,7 +36,7 @@ void read1stOrder(istream& inp, vector<LevelOne> &dest)
 		}
 	}
 	//for (auto a : dest)
-	//	cout << "*** " << a.center.symbol() << " " << a.valence << " " << "DC: " << a.dc << endl;
+	//	cout << "*** " << a.center.symbol() << " " << a.valence << " " << "DC: " << a.dc << endline;
 }
 
 void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
@@ -85,10 +85,10 @@ void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 	
 	for (auto &e : dest)
 	{
-		cerr << "^^^ " << e.center.symbol() << " " << e.valence << "{ ";
+		LOG(DEBUG) << "^^^ " << e.center.symbol() << " " << e.valence << "{ ";
 		for (auto lnk : e.bonds)
-			cerr << lnk.atom.symbol() << " ";
-		cerr << "} DC: " << e.dc << endl;
+			LOG(DEBUG) << lnk.atom.symbol() << " ";
+		LOG(DEBUG) << "} DC: " << e.dc << endline;
 	}
 	
 }
