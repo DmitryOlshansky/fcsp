@@ -313,15 +313,23 @@ struct FCSP::Impl{
 
 	void sortDCs()
 	{
+		// filter out things that got reserved
+		auto before = dcs.size();
+		dcs.erase(remove_if(dcs.begin(), dcs.end(), [&](const pair<vd, int>& a){
+			auto p = reserved_dcs.find(a.first);
+			// LOG(FATAL) << "> " << (p != reserved_dcs.end()) << endline;
+			return p != reserved_dcs.end() && p->second != a.second;
+		}), dcs.end());
+		LOG(INFO) << "Filtered " << before - dcs.size() << " in favor of monolithic patterns."<< endline;
 		sort(dcs.begin(), dcs.end(), [](const pair<vd, int>& a, const pair<vd, int>& b){
 			return a.second < b.second;
 		});
-		LOG(DEBUG) << "Sorted DCs:" << endline;
+		LOG(INFO) << "Found DCs:" << endline;
 		for (auto& dc : dcs)
 		{
-			LOG(DEBUG) << dc.first << " -DC-> " << dc.second << endline;
+			LOG(INFO) << dc.first << " -DC-> " << dc.second << endline;
 		}
-		LOG(DEBUG) << endline;
+		LOG(INFO) << endline;
 	}
 
 	void process(ostream& out, string filename)
@@ -460,8 +468,6 @@ struct FCSP::Impl{
 			{
 				if(j->replOnly != replOnly) // can't use during this stage
 					continue;
-				if(j->replOnly)
-					LOG(FATAL) << "Found REPL-ONLY: "<< j->dc << endline;
 				if (edges.second - edges.first < j->bonds.size())
 					continue;
 				if (!j->center.matches(graph[*i].code))
@@ -512,6 +518,14 @@ struct FCSP::Impl{
 					}
 					dcs.emplace_back(*i, j->dc);
 					dcsAtoms.insert(make_pair(*i, atoms));
+					// only assign DCs to reserve once
+					if(j->monolith)// && reserved_dcs.find(*i) == reserved_dcs.end())
+					{ 
+						LOG(DEBUG) << "Reserved for DC "<< j->dc << " "<< atoms.size() + 1 <<" atoms"<<endline;
+						//reserve atoms that belong to this DC
+						reserved_dcs[*i] = j->dc;
+						for(auto v : atoms) reserved_dcs[v] = j->dc;
+					}
 				}
 			}
 		}
@@ -1362,6 +1376,7 @@ private:
 	//location of DCs in 'graph' and their numeric value
 	vector<pair<vd, int>> dcs;
 	map<vd, vector<int>> dcsAtoms; // extra atoms that belong to each DC  
+	std::unordered_map<vd, int> reserved_dcs; // atoms reserved by specific monolithic DC
 	//
 	vector<string> outPieces;
 	//sorted arrays of edges - basic cycles

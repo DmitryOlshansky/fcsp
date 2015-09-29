@@ -28,11 +28,12 @@ struct Linked{
 struct LevelTwo{
 	Code center;
 	int valence;
+	bool monolith;
 	bool replOnly; // if only allowed in replacements
 	std::vector<Linked> bonds;
 	int dc;
-	LevelTwo(Code center_, int valence_, bool replOnly_, std::vector<Linked> linked, int dc_) :
-		center(center_), valence(valence_), replOnly(replOnly_), bonds(linked), dc(dc_){}
+	LevelTwo(Code center_, int valence_, bool monolith_, bool replOnly_, std::vector<Linked> linked, int dc_) :
+		center(center_), valence(valence_), monolith(monolith_),replOnly(replOnly_), bonds(linked), dc(dc_){}
 
 	bool operator<(const LevelTwo& rhs) const
 	{

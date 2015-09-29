@@ -127,6 +127,7 @@ struct AtomStringsInit{
 		createWild("Z");
 		createWild("R");
 		createWild("X");
+		createWild("Y1");
 	}
 };
 
@@ -292,6 +293,8 @@ static bool wildMatch(int wildcard, int atom)
 		return true;
 	case X_code:
 		return atom != O_code;
+	case Y1_code:
+		return atom != C_code && atom != H_code;
 	case R_code:
 		return atom != H_code;
 	default:

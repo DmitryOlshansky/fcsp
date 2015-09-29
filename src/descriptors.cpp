@@ -8,6 +8,15 @@
 
 using namespace std;
 
+template<class T>
+T to(string s)
+{
+	T val;
+	stringstream str(s);
+	str >> val;
+	return val;
+}
+
 void read1stOrder(istream& inp, vector<LevelOne> &dest)
 {
 	string s;
@@ -74,20 +83,22 @@ void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 				links.emplace_back(rec.mol.atoms[e.a1 - 1].code, e.type);
 		});
 		int replOnly = 0; // default to commonly usable DC
+		int monolith = 0; // default to allow superpositon of DCs
 		if(rec.props.find("REPLONLY") != rec.props.end())
 		{
-			stringstream str2(rec.props["REPLONLY"].front());
-			str2 >> replOnly;
+			replOnly = to<int>(rec.props["REPLONLY"].front());
+		}
+		if(rec.props.find("MONOLITH") != rec.props.end())
+		{
+			monolith = to<int>(rec.props["MONOLITH"].front());
 		}
 		if(rec.props.find("DC") == rec.props.end())
 			LOG(ERROR) << "No DC found for level-2 pattern #"<<i<<endline;
 		else
 			for_each(rec.props["DC"].begin(), rec.props["DC"].end(), 
-			[&dest, replOnly, c, valency, &links](string s){
-				stringstream str(s);
-				int dc;
-				str >> dc;
-				LevelTwo t(c, valency, replOnly, links, dc);
+			[&dest, monolith, replOnly, c, valency, &links](string s){
+				int dc = to<int>(s);
+				LevelTwo t(c, valency, monolith, replOnly, links, dc);
 				auto lb = lower_bound(begin(dest), end(dest), t);
 				dest.insert(lb, t);
 			});

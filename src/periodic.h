@@ -62,7 +62,8 @@ enum {
 //wild cards
 	Z_code = -1, // anything
 	R_code = -2, // anything but H
-	X_code = -3  // anything but O
+	X_code = -3,  // anything but O
+	Y1_code = -4 // heteroatom - anything but C or H
 };
 
 // An atom or a template a-la ^
