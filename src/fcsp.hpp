@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <stdexcept>
 #include <vector>
 #include <string>
 #include <iostream>
@@ -49,6 +50,7 @@ struct Replacement{
 	Replacement(ChemGraph g, int dc_, int coupling_) :
 		piece(std::move(g)), dc(dc_), coupling(coupling_)
 	{
+		a1 = a2 = -1;
 		auto asym = Code("A1");
 		auto bsym = Code("A2");
 		auto r = vertices(piece);
@@ -64,6 +66,10 @@ struct Replacement{
 				a2 = *i;
 				piece[*i].code = Code("R");
 			}
+		}
+		if(a1 == -1 || a2 == -1)
+		{
+			throw std::logic_error("Bad replacement loaded");
 		}
 	}
 };

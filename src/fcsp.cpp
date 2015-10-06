@@ -1344,15 +1344,17 @@ struct FCSP::Impl{
 					auto secondDC = s;
 					auto firstV = fV;
 					auto secondV = sV;
-					if(f > s){
+					// the usual rule of smaller DC first
+					if(firstDC > secondDC)
+					{
 						swap(firstDC, secondDC);
 						swap(firstV, secondV);
 					}
 					auto check_val = make_pair(make_pair(firstV, firstDC), make_pair(secondV,secondDC));
-					//if (find(used_pairs.begin(), used_pairs.end(),check_val) != used_pairs.end()) 
-					//	continue;
+					if (find(used_pairs.begin(), used_pairs.end(),check_val) != used_pairs.end())
+							continue;
 					used_pairs.emplace_back(make_pair(firstV, firstDC), make_pair(secondV,secondDC));
-					// the usual rule of smaller DC first
+					
 					stringstream buffer;
 					vector<int> fragment;
 					for(auto& p : m)
@@ -1371,17 +1373,17 @@ struct FCSP::Impl{
 	}
 
 private:
-	std::vector<LevelOne> order1;
-	std::vector<LevelTwo> order2;
-	std::vector<Replacement> repls;
-	bool long41;
-	FCSPFMT format;
-	ChemGraph graph;
+	std::vector<LevelOne> order1;		// patterns for first-order DCs
+	std::vector<LevelTwo> order2;		// patterns for second-order DCs
+	std::vector<Replacement> repls; // patterns for replacement decsriptors (not DCs)
+	bool long41;										// if true - DC #41 adds +1 to the length of chain
+	FCSPFMT format;				 					// controls output format
+	ChemGraph graph;								// mol graph
 	//location of DCs in 'graph' and their numeric value
-	vector<pair<vd, int>> dcs;
-	map<vd, vector<int>> dcsAtoms; // extra atoms that belong to each DC  
+	vector<pair<vd, int>> dcs;			// sorted by vertex array of vertex->dc mappings
+	map<vd, vector<int>> dcsAtoms;  // extra atoms that belong to each DC  
 	std::unordered_map<vd, int> reserved_dcs; // atoms reserved by specific monolithic DC
-	//
+	// unassembled output chunks, assembly depends on format variable
 	vector<string> outPieces;
 	//sorted arrays of edges - basic cycles
 	vector<vector<pair<int, int>>> cycles;
