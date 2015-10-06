@@ -84,6 +84,7 @@ void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 		});
 		int replOnly = 0; // default to commonly usable DC
 		int monolith = 0; // default to allow superpositon of DCs
+		int start = 0;
 		if(rec.props.find("REPLONLY") != rec.props.end())
 		{
 			replOnly = to<int>(rec.props["REPLONLY"].front());
@@ -92,13 +93,17 @@ void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 		{
 			monolith = to<int>(rec.props["MONOLITH"].front());
 		}
+		if(rec.props.find("START") != rec.props.end())
+		{
+			start = to<int>(rec.props["START"].front());
+		}
 		if(rec.props.find("DC") == rec.props.end())
 			LOG(ERROR) << "No DC found for level-2 pattern #"<<i<<endline;
 		else
 			for_each(rec.props["DC"].begin(), rec.props["DC"].end(), 
-			[&dest, monolith, replOnly, c, valency, &links](string s){
+			[&](string s){
 				int dc = to<int>(s);
-				LevelTwo t(c, valency, monolith, replOnly, links, dc);
+				LevelTwo t(c, valency, start, monolith, replOnly, links, dc);
 				auto lb = lower_bound(begin(dest), end(dest), t);
 				dest.insert(lb, t);
 			});
