@@ -303,6 +303,12 @@ static bool wildMatch(int wildcard, int atom)
 	}
 }
 
+
+bool Code::isWild()const
+{
+	return index < 0;
+}
+
 bool Code::matches(Code code)const
 {
 	//FIXME: re-enable strict matching with charge modifiers and fix any issues left

@@ -320,7 +320,7 @@ struct FCSP::Impl{
 			// LOG(FATAL) << "> " << (p != reserved_dcs.end()) << endline;
 			return p != reserved_dcs.end() && p->second != a.second;
 		}), dcs.end());
-		LOG(INFO) << "Filtered " << before - dcs.size() << " in favor of monolithic patterns."<< endline;
+		LOG(INFO) << "Filtered " << before - dcs.size() << " DCs in favor of monolithic patterns."<< endline;
 		sort(dcs.begin(), dcs.end(), [](const pair<vd, int>& a, const pair<vd, int>& b){
 			return a.second < b.second;
 		});
@@ -519,12 +519,16 @@ struct FCSP::Impl{
 					dcs.emplace_back(*i, j->dc);
 					dcsAtoms.insert(make_pair(*i, atoms));
 					// only assign DCs to reserve once
-					if(j->monolith)// && reserved_dcs.find(*i) == reserved_dcs.end())
+					if(j->monolith && reserved_dcs.find(*i) == reserved_dcs.end())
 					{ 
 						LOG(DEBUG) << "Reserved for DC "<< j->dc << " "<< atoms.size() + 1 <<" atoms"<<endline;
 						//reserve atoms that belong to this DC
 						reserved_dcs[*i] = j->dc;
-						for(auto v : atoms) reserved_dcs[v] = j->dc;
+						for(auto v : atoms)
+						{
+							if(graph[v].code != C) //FIXME: should be more sensible
+								reserved_dcs[v] = j->dc;
+						}
 					}
 				}
 			}

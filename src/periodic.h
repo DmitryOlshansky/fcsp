@@ -81,6 +81,7 @@ public:
 	bool matches(Code code)const;
 	//ref to a symbol in a global table
 	const std::string& symbol()const;
+	bool isWild()const;
 	int code()const{ return index; }
 	int charge()const{ return _charge; }
 	Code& charge(int chargeMod){ _charge = chargeMod; return *this; }
