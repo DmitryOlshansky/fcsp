@@ -29,3 +29,6 @@
 
 # Development version of CSV files
 *-dev.csv
+
+# FCSS comparator output
+*.cmp
