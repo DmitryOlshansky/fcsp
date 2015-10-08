@@ -1,24 +1,43 @@
 #include <algorithm>
 #include <string>
 #include <sstream>
-#include "descriptors.h"
-#include "parser.h"
-#include "ctab.h"
+#include "descriptors.hpp"
+#include "conv.hpp"
+#include "ctab.hpp"
 #include "log.hpp"
+#include "parser.hpp"
 
 using namespace std;
 
-template<class T>
-T to(string s)
+Replacement::Replacement(ChemGraph g, int dc_, int coupling_) :
+	piece(std::move(g)), dc(dc_), coupling(coupling_)
 {
-	T val;
-	stringstream str(s);
-	str >> val;
-	return val;
+	a1 = a2 = -1;
+	auto asym = Code("A1");
+	auto bsym = Code("A2");
+	auto r = vertices(piece);
+	for (auto i = r.first; i != r.second; i++)
+	{
+		if (piece[*i].code == asym)
+		{
+			a1 = *i;
+			piece[*i].code = Code("R");
+		}
+		if (piece[*i].code == bsym)
+		{
+			a2 = *i;
+			piece[*i].code = Code("R");
+		}
+	}
+	if(a1 == -1 || a2 == -1)
+	{
+		throw std::logic_error("Bad replacement loaded");
+	}
 }
 
-void read1stOrder(istream& inp, vector<LevelOne> &dest)
+auto read1stOrder(istream& inp) -> vector<LevelOne>
 {
+	vector<LevelOne> dest;
 	string s;
 	Parser parser(inp);
 	while (!parser.eof())
@@ -27,7 +46,6 @@ void read1stOrder(istream& inp, vector<LevelOne> &dest)
 		string valency = parser.quotedString();
 		stringstream dcStr(parser.line()); //rest of the line
 		int dc;
-		//cout << valency << endline;
 		dcStr >> dc;
 		Code code(sym);
 		stringstream str(valency);
@@ -36,7 +54,7 @@ void read1stOrder(istream& inp, vector<LevelOne> &dest)
 			int val;
 			char delim;
 			str >> val;
-			LevelOne toInsert(code, val, dc);
+			LevelOne toInsert{code, val, dc};
 			auto it = lower_bound(begin(dest), end(dest), toInsert);
 			dest.insert(it, toInsert);
 			str >> delim;
@@ -44,12 +62,12 @@ void read1stOrder(istream& inp, vector<LevelOne> &dest)
 				break;
 		}
 	}
-	//for (auto a : dest)
-	//	cout << "*** " << a.center.symbol() << " " << a.valence << " " << "DC: " << a.dc << endline;
+	return dest;
 }
 
-void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
+auto read2ndOrder(istream& inp) -> vector<LevelTwo>
 {
+	vector<LevelTwo> dest;
 	vector<SDF> sdf = readSdf(inp);
 	for (size_t i=0; i<sdf.size(); i++)
 	{
@@ -103,7 +121,7 @@ void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 			for_each(rec.props["DC"].begin(), rec.props["DC"].end(), 
 			[&](string s){
 				int dc = to<int>(s);
-				LevelTwo t(c, valency, start, monolith, replOnly, links, dc);
+				LevelTwo t{c, start, valency, monolith != 0, replOnly != 0, links, dc};
 				auto lb = lower_bound(begin(dest), end(dest), t);
 				dest.insert(lb, t);
 			});
@@ -116,5 +134,18 @@ void read2ndOrder(istream& inp, vector<LevelTwo> &dest)
 			LOG(DEBUG) << lnk.atom.symbol() << " ";
 		LOG(DEBUG) << "} DC: " << e.dc << endline;
 	}
-	
+	return dest;
+}
+
+
+auto readReplacements(istream& inp) -> vector<Replacement>
+{
+	vector<Replacement> repls;
+	auto sdfs = readSdf(inp);
+	for_each(sdfs.begin(), sdfs.end(), [&repls](SDF& sdf){
+		int dc = to<int>(sdf.props["DC"][0]);
+		int couple = to<int>(sdf.props["COUPLING"][0]);
+		repls.emplace_back(toGraph(sdf.mol), dc, couple);
+	});
+	return repls;
 }

@@ -3,7 +3,7 @@
 #include <string>
 #include <algorithm>
 #include <unordered_map>
-#include "periodic.h"
+#include "periodic.hpp"
 
 using namespace std;
 

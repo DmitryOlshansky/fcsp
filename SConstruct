@@ -7,7 +7,7 @@ env = Environment()
 if env['CXX'] == 'cl':
     copts = "/EHsc"
 elif env['CXX'] == 'g++' or env['CXX'] == 'clang++':
-	copts = "-std=gnu++11 -static "
+	copts = "-std=gnu++11 -static -Wall "
 	if release:
 		copts += "-O2 "
 	else:

@@ -3,14 +3,13 @@
 #include <vector>
 #include <istream>
 #include <unordered_map>
-#include "periodic.h"
+#include "periodic.hpp"
+#include "chemgraph.hpp"
 
 struct LevelOne{
 	Code center;
 	int valence;
 	int dc;
-	LevelOne(Code center_, int valence_, int dc_):
-		center(center_), valence(valence_), dc(dc_){}
 	bool operator<(const LevelOne& rhs) const
 	{
 		return center < rhs.center || (center == rhs.center && valence < rhs.valence);
@@ -33,15 +32,23 @@ struct LevelTwo{
 	bool replOnly; // if only allowed in replacements
 	std::vector<Linked> bonds;
 	int dc;
-	LevelTwo(Code center_, int valence_, int start_, bool monolith_, bool replOnly_, std::vector<Linked> linked, int dc_) :
-		center(center_), valence(valence_), start(start_), monolith(monolith_),replOnly(replOnly_), bonds(linked), dc(dc_){}
-
 	bool operator<(const LevelTwo& rhs) const
 	{
 		return center < rhs.center || (center == rhs.center && valence < rhs.valence);
 	}
 };
 
+
+struct Replacement{
+	ChemGraph piece;
+	int a1, a2; //vertices of replacements
+	int dc, coupling;
+
+	Replacement(ChemGraph g, int dc_, int coupling_);
+};
+
+
 //read
-void read1stOrder(std::istream& inp, std::vector<LevelOne> &dest);
-void read2ndOrder(std::istream& inp, std::vector<LevelTwo> &dest);
+std::vector<LevelOne> read1stOrder(std::istream& inp);
+std::vector<LevelTwo> read2ndOrder(std::istream& inp);
+std::vector<Replacement> readReplacements(std::istream& inp);

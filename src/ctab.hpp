@@ -12,7 +12,7 @@
 #include <map>
 #include <istream>
 #include <ostream>
-#include "periodic.h"
+#include "periodic.hpp"
 
 //one atom entry in a MOL file
 struct AtomEntry{

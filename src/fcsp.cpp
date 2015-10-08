@@ -9,9 +9,15 @@
 #include <iomanip>
 #include <set>
 #include <boost/graph/vf2_sub_graph_iso.hpp>
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/depth_first_search.hpp>
+#include <boost/graph/breadth_first_search.hpp>
+#include <boost/graph/visitors.hpp>
+
+#include "conv.hpp"
+#include "ctab.hpp"
+#include "descriptors.hpp"
 #include "fcsp.hpp"
-#include "ctab.h"
-#include "descriptors.h"
 #include "log.hpp"
 
 enum { NON_PASSABLE = 10000 };
@@ -134,22 +140,6 @@ struct edge_less
 	}
 };
 
-ChemGraph toGraph(CTab& tab)
-{
-	ChemGraph graph;
-	//add_vertex
-	for_each(tab.atoms.begin(), tab.atoms.end(), [&graph](const AtomEntry& a)
-	{
-		add_vertex(AtomVertex(a.code), graph);
-	});
-	auto vrange = vertices(graph);
-	//add edges
-	for_each(tab.bounds.begin(), tab.bounds.end(), [&graph, &vrange](const BoundEntry& b)
-	{
-		add_edge(vrange.first[b.a1] - 1, vrange.first[b.a2] - 1, Bound(b.type), graph);
-	});
-	return graph;
-}
 
 struct TrackPath: public default_bfs_visitor {
 	ChemGraph& g;
@@ -237,21 +227,6 @@ struct CollectAsVectors{
 	}
 };
 
-class CodeWriter {
-public:
-	CodeWriter(ChemGraph& graph):g(graph){}
-	template <class VertexOrEdge>
-	void operator()(std::ostream& out, const VertexOrEdge& v) const {
-	  out << "[label=\"" << g[v].code.symbol() << " [" << v << "]" << "\"]";
-	}
-private:
-	ChemGraph& g;
-};
-
-void dumpGraph(ChemGraph& graph, ostream& out)
-{
-	write_graphviz(out, graph, CodeWriter(graph));
-}
 
 int getValence(ChemGraph& graph, ChemGraph::vertex_descriptor vertex)
 {
@@ -421,7 +396,7 @@ struct FCSP::Impl{
 		{
 			int valency = graph[*i].valence;
 			auto edges = out_edges(*i, graph);
-			LevelOne t(graph[*i].code, valency, 0);
+			LevelOne t{graph[*i].code, valency, 0};
 			auto range = equal_range(order1.begin(), order1.end(), t);
 			if(!replOnly) // skip level-1 DCs and 45-46 for repl-only DCs
 			{
@@ -1211,7 +1186,7 @@ struct FCSP::Impl{
 				{
 					auto& nextL = chainAt(hatoms, idx + k);
 					auto& nextR = chainAt(hatoms, idx - k);
-					auto number = lexical_cast<string>(k + 1);
+					auto number = to<string>(k + 1);
 					left_descr += nextL.first + number;
 					right_descr += nextR.first + number;
 				}

@@ -7,8 +7,8 @@
 #include <ctype.h>
 #include <cmath>
 #include <string.h>
-#include "ctab.h"
-#include "parser.h"
+#include "ctab.hpp"
+#include "parser.hpp"
 #include "log.hpp"
 
 using namespace std;

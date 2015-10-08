@@ -9,23 +9,13 @@
 #include <iostream>
 #include <fstream>
 #include "fcsp.hpp"
-#include "ctab.h"
+#include "ctab.hpp"
 #include "log.hpp"
 
 using namespace std;
 using boost::lexical_cast;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-
-void readReplacements(ifstream& inp, vector<Replacement>& repls)
-{
-	auto sdfs = readSdf(inp);
-	for_each(sdfs.begin(), sdfs.end(), [&repls](SDF& sdf){
-		int dc = lexical_cast<int>(sdf.props["DC"][0]);
-		int couple = lexical_cast<int>(sdf.props["COUPLING"][0]);
-		repls.emplace_back(toGraph(sdf.mol), dc, couple);
-	});
-}
 
 void processFile(FCSP& fcsp, const string& path, bool plot)
 {
@@ -130,13 +120,10 @@ int main(int argc, const char* argv[])
 	}
 	ifstream repl((base / "replacement.sdf").c_str());
 	try{
-		vector<LevelOne> order1;
-		vector<LevelTwo> order2;
-		vector<Replacement> replacements;
-		read1stOrder(descr1, order1);
-		read2ndOrder(descr2, order2);
-		readReplacements(repl, replacements);
-		FCSP fcsp(FCSPOptions{order1, order2, replacements, long41, fmt});
+		vector<LevelOne> order1 = read1stOrder(descr1);
+		vector<LevelTwo> order2 = read2ndOrder(descr2);
+		vector<Replacement> replacements = readReplacements(repl);
+		FCSP fcsp({order1, order2, replacements, long41, fmt});
         if(inputs.empty()){
             fcsp.load(cin);
             fcsp.process(cout);
