@@ -18,7 +18,7 @@ if env['CC'] == 'cl':
     libs = ["libboost_program_options-*", "libboost_system-*", "libboost_filesystem-*"]
     libs = [glob.glob(boost_lib+'\\'+lib)[0] for lib in libs]
 elif env['CXX'] == 'g++' or env['CXX'] == 'clang++':
-    copts = "-std=gnu++11 -static -Wall "
+    copts = "-std=gnu++11 -static -Wno-sign-compare -Wall "
     if release:
         copts += "-O2 "
     else:

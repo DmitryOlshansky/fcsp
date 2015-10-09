@@ -9,7 +9,6 @@
 #include <iomanip>
 #include <set>
 #include <boost/graph/vf2_sub_graph_iso.hpp>
-#include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/breadth_first_search.hpp>
 #include <boost/graph/visitors.hpp>
@@ -23,18 +22,6 @@
 enum { NON_PASSABLE = 10000 };
 using namespace std;
 using namespace boost;
-
-using vd = ChemGraph::vertex_descriptor;
-using ed = ChemGraph::edge_descriptor;
-
-void logCycle(vector<pair<int, int>>& v)
-{
-	for (auto & e : v)
-	{
-		LOG(DEBUG) << e.first << "--" << e.second << endline;
-	}
-	LOG(DEBUG) << endline;
-}
 
 void printJsArray(vector<int>& v, ostream& out)
 {
@@ -84,63 +71,6 @@ bool pickChoices(const vector<bool>& matrix, size_t rows, size_t cols, vector<si
 	return false;
 }
 
-struct markLoops : public dfs_visitor<>{
-	vector<pair<int,int>> path;
-	vector<vector<pair<int, int>>>& cycles;
-	markLoops(vector<vector<pair<int, int>>> &cycles_) :
-		cycles(cycles_){}
-
-	template<class Edge, class Graph>
-	void tree_edge(Edge e, Graph& g)
-	{
-		auto a = source(e, g);
-		auto b = target(e, g);
-		//back-track to the start of this edge
-		while (!path.empty() && path.back().second != a){
-			path.pop_back();
-		}
-		path.emplace_back(a, b);
-		LOG(TRACE) << a << "-->" << b << endline;
-	}
-
-	template<class Edge, class Graph>
-	void back_edge(Edge e, Graph& g)
-	{
-		auto a = source(e, g);
-		auto b = target(e, g);
-		auto c = make_pair((int)b, (int)a);
-		LOG(TRACE) << a << "++>" << b << endline;
-		if (find_if(path.begin(), path.end(), [c](const pair<int, int> &p){
-			return p.first == c.first && p.second == c.second;
-		}) == path.end())
-		{
-			auto end = find_if(path.rbegin(), path.rend(), [a](const pair<int, int> &p){
-				return p.second == a;
-			});
-			auto len = path.rend() - end;
-			auto start = find_if(path.begin(), path.begin() + len, [b](const pair<int, int> &p){
-				return p.first == b;
-			});
-			vector<pair<int, int>> v{ start, path.begin()+len };
-			v.emplace_back(a, b);
-			LOG(DEBUG) << "~~~~~" << endline;
-			logCycle(v);
-			cycles.push_back(std::move(v));
-			LOG(DEBUG) << "*****" << endline;
-		}
-	}
-};
-
-struct edge_less
-{
-	bool operator()(pair<int, int> lhs, pair<int, int> rhs)
-	{
-		return lhs.first < rhs.first ||
-			(lhs.first == rhs.first && lhs.second < rhs.second);
-	}
-};
-
-
 struct TrackPath: public default_bfs_visitor {
 	ChemGraph& g;
 	vector<pair<vd, int>>& dcs;
@@ -148,7 +78,7 @@ struct TrackPath: public default_bfs_visitor {
 	bool pass_4546;
 	TrackPath(ChemGraph& graph, ChemGraph::vertex_descriptor s, ChemGraph::vertex_descriptor t, 
 		vector<pair<vd, int>>& dcsArr) :
-		g(graph), start(s), tgt(t), dcs(dcsArr)
+		g(graph), dcs(dcsArr), start(s), tgt(t)
 	{
 		auto sdc = *find_if(dcs.begin(), dcs.end(), [&](pair<vd,int> p){
 			return p.first == start;
@@ -283,7 +213,6 @@ struct FCSP::Impl{
 		dcs.clear();
 		dcsAtoms.clear();
 		cycles.clear();
-		chains.clear();
 	}
 
 	void sortDCs()
@@ -379,7 +308,6 @@ struct FCSP::Impl{
 		auto vrtx = vertices(graph);
 		for (auto i = vrtx.first; i != vrtx.second; i++)
 		{
-			auto edges = out_edges(*i, graph);
 			//pre-calculate per-atom properties
 			int valency = getValence(graph, *i);
 			graph[*i].valence = valency;
@@ -443,7 +371,7 @@ struct FCSP::Impl{
 			{
 				if(j->replOnly != replOnly) // can't use during this stage
 					continue;
-				if (edges.second - edges.first < j->bonds.size())
+				if (edges.second - edges.first < (int)j->bonds.size())
 					continue;
 				if (!j->center.matches(graph[*i].code))
 					continue;
@@ -540,7 +468,6 @@ struct FCSP::Impl{
 			{ 'T', S, 0, 1, 1, 0 },
 			{ 'S', S, 2, 2, 0, 0 }
 		};
-		char c = 0;
 		for (auto& e : table)
 		{
 			if (g[v].code == e.code)
@@ -569,39 +496,7 @@ struct FCSP::Impl{
 		return !atom.code.matches(C) && !atom.code.matches(H);
 	}
 
-	template<class T, class EdgeMap>
-	static vector<int> cycleToChain(vector<T>& ic, EdgeMap&& mapper)
-	{
-		vector<int> vc;
-		auto seed = mapper(ic.front());
-		vc.push_back(seed.first);
-		vc.push_back(seed.second);
-		while (vc.front() != vc.back())
-		{
-			bool found = false;
-			for (auto e : ic)
-			{
-				auto p = mapper(e);
-				//has common vertex with back of chain and not == second one
-				if (p.first == vc.back() && p.second != vc[vc.size() - 2])
-					vc.push_back(p.second);
-				else if (p.second == vc.back() && p.first != vc[vc.size() - 2])
-					vc.push_back(p.first);
-				//has common vertex with front of chain and not == second one
-				else if (p.first == vc[0] && p.second != vc[1])
-					vc.insert(vc.begin(), p.second);
-				else if (p.second == vc[0] && p.first != vc[1])
-					vc.insert(vc.begin(), p.first);
-				else
-					continue;
-				found = true;
-				break;
-			}
-			assert(found);
-		}
-		vc.pop_back();
-		return vc;
-	}
+	
 
 	void addHydrogen()
 	{
@@ -631,96 +526,22 @@ struct FCSP::Impl{
 
 	void locateCycles()
 	{
-		depth_first_search(graph, markLoops(cycles), get(&AtomVertex::color, graph));
-		for (auto & c : cycles)
+		cycles = minimalCycleBasis(graph);
+		for (auto& ic : cycles)
 		{
-			transform(c.begin(), c.end(), c.begin(), [](const pair<int, int> &p){ 
-				return p.first < p.second ? p : make_pair(p.second, p.first);
-			});
-			sort(c.begin(), c.end(), edge_less());
-		}
-		LOG(DEBUG) << "BEFORE SPLIT" << endline;
-		for_each(cycles.begin(), cycles.end(), &logCycle);
-		vector<pair<int, int>> t, t2, uc, xc;
-		//TODO: need some solid proof and potentially incorrect in complex cases:
-		// what happens after 2 cycles are replaced with XOR or U of original pair?
-		for (int q = 0; q < 10; q++)//hack
-		for (size_t i = 0; i < cycles.size(); i++)
-		for (size_t j = i + 1; j < cycles.size(); j++)
-		{
-			auto& c1 = cycles[i];
-			auto& c2 = cycles[j];
-			t.resize(min(c1.size(), c2.size()));
-			t2.resize(max(c1.size(), c2.size()));
-			auto tend = set_intersection(c1.begin(), c1.end(), c2.begin(), c2.end(), t.begin(), edge_less());
-			if (t.begin() == tend) // empty intersection
-				continue;
-			uc.resize(c1.size() + c2.size());
-			xc.resize(c1.size() + c2.size());
-			auto xcend = set_symmetric_difference(c1.begin(), c1.end(), c2.begin(), c2.end(), xc.begin(), edge_less());
-			//uc.resize(ucend - uc.begin());
-			xc.resize(xcend - xc.begin());
-			size_t len1 = c1.size(), len2 = c2.size();
-			size_t /*lenU = uc.size(),*/ lenX = xc.size();
-			pair<size_t, vector<pair<int, int>>*> result[4];
-			result[0] = make_pair(len1, &c1);
-			result[1] = make_pair(len2, &c2);			
-			int m = 2;
-			/*if (uc != c1)
-				result[m++] = make_pair(lenU, &uc);
-			else*/ if (xc != c2)
-				result[m++] = make_pair(lenX, &xc);
-			for (int k = 0; k < m; k++)
+			auto& vc = ic.chain;
+			ic.markAromatic(graph);
+			if(ic.aromatic()) // aromatic specific DCs
 			{
-				LOG(TRACE) << result[k].first << " ";
-			}
-			LOG(TRACE) << endline;
-			sort(result, result + m, [](pair<size_t, vector<pair<int, int>>*> a, pair<size_t, vector<pair<int, int>>*> b){
-				return a.first < b.first;
-			});
-
-			if ((&c1 == result[0].second && &c2 == result[1].second) ||
-				(&c1 == result[1].second && &c2 == result[0].second))
-				continue; //same cycles have won
-			auto n1 = *result[1].second;
-			auto n2 = *result[0].second;
-			LOG(TRACE) << n1.size() << " " << n2.size() << endline;
-			c1 = n1;
-			c2 = n2;
-		}
-		LOG(DEBUG) << "AFTER SPLIT" << endline;
-		for_each(cycles.begin(), cycles.end(), &logCycle);
-		for (auto ic : cycles)
-		{
-			assert(ic.size() > 2);
-			auto vc = cycleToChain(ic, [](const pair<int, int>& p){ return p; });
-			LOG(TRACE) << "CHAIN: ";
-			for (int k : vc)
-				LOG(TRACE) << k << " - ";
-			LOG(TRACE) << endline;
-			auto& g = graph;
-			int piEl = 0;
-			for_each(vc.begin(), vc.end(), [&g, &piEl](int n){
-				LOG(TRACE) << "Atom # " << n << " " << g[n].code.symbol() << " pi E = " << g[n].piE << endline;
-				if (g[n].piE > 0)
-					piEl += g[n].piE;
-				//TODO: add debug trace for < 0
-			});
-			bool aromatic = ((piEl - 2) % 4 == 0);
-			LOG(TRACE) << "PI E " << piEl << " aromatic? : " << aromatic << endline;
-			//assign cyclic-only DC
-			if (aromatic)
-			{
-				for (auto n : vc)
+				for(auto n : vc)
 				{
-					g[n].inAromaCycle = true;
 					//any atom in aromatic cycle
 					dcs.emplace_back(n, 33);
 					//hetero-atom in aromatic cycle - DC 34
-					if (!g[n].code.matches(C))
+					if (!graph[n].code.matches(C))
 						dcs.emplace_back(n, 34);
 					auto idx = find(vc.begin(), vc.end(), n) - vc.begin();
-					assert(idx < vc.size());
+					assert(idx != (int)vc.size());
 					if (heteroatom(graph[chainAt(vc, idx - 1)])
 						|| heteroatom(graph[chainAt(vc, idx + 1)]))
 					{
@@ -736,11 +557,9 @@ struct FCSP::Impl{
 					{
 						dcs.emplace_back(n, 37);
 					}
-					//TODO: DC 40 - need reference table of valence, to test charged atoms
+					//TODO: DC 40 - need to handle charges carefully to test charged atoms
 				}
 			}
-			using std::move;
-			chains.push_back(move(vc));
 		}
 	}
 
@@ -858,9 +677,9 @@ struct FCSP::Impl{
 	}
 
 	struct Edge{
-		pair<int, int> e;
+		pair<vd, vd> e;
 		int cycNum; //e принадлежит циклу cycles[cycNum]
-		Edge(pair<int, int> e_, int cyc) :
+		Edge(pair<vd, vd> e_, int cyc) :
 			e(e_), cycNum(cyc){}
 		bool operator<(const Edge& rhs)const
 		{
@@ -869,10 +688,10 @@ struct FCSP::Impl{
 	};
 
 	//Строим запись "головы" двигаясь по огибающей (common) в обе стороны 
-	string encodeHead(int firstCycle, vector<int>& commonCh, vector<Edge>& common, int totalCycles)
+	string encodeHead(int firstCycle, vector<vd>& commonCh, vector<Edge>& common, int totalCycles)
 	{
 		//Выбор опорного атома из стартового цикла
-		auto& firstChain = chains[firstCycle];
+		auto& firstChain = cycles[firstCycle].chain;
 		auto firstIdx = find_if(commonCh.begin(), commonCh.end(), [&firstChain](int v){
 			return find(firstChain.begin(), firstChain.end(), v) != firstChain.end();
 		});
@@ -883,7 +702,7 @@ struct FCSP::Impl{
 		return fwd < bwd ? fwd : bwd;
 	}
 
-	string encodeCycle(int dir, vector<int>& commonCh, int fIdx, int cycNum, vector<Edge>& common, int totalCycles)
+	string encodeCycle(int dir, vector<vd>& commonCh, int fIdx, int cycNum, vector<Edge>& common, int totalCycles)
 	{
 		stringstream cyclic_out;
 		int edgeNum = 0; // on the most recent cycle
@@ -910,10 +729,10 @@ struct FCSP::Impl{
 				{
 					assert(prevEdgeNum > 0 && prevEdgeNum < 9); //TODO: error on this
 					cyclic_out << setw(1) << tab[prevEdgeNum-1]
-						<< setw(1) << cycles[cycNum].size();
+						<< setw(1) << cycles[cycNum].edges.size();
 				}
 				else
-					cyclic_out << setw(1) << cycles[cycNum].size();
+					cyclic_out << setw(1) << cycles[cycNum].edges.size();
 				cycNum = p.first->cycNum;
 				prevEdgeNum = edgeNum;
 				edgeNum = 0;
@@ -924,9 +743,8 @@ struct FCSP::Impl{
 		return cyclic_out.str();
 	}
 
-	int pickNonKeyAtom(int dir, int fChain, int firstCycle, vector<int>& commonCh, vector<Edge>& common)
+	int pickNonKeyAtom(int dir, int fChain, int firstCycle, vector<vd>& commonCh, vector<Edge>& common)
 	{
-		int res;
 		for (int k = 0, j = fChain; k < (int)commonCh.size(); k++, j += dir)
 		{
 			auto v = chainAt(commonCh, j);
@@ -944,7 +762,7 @@ struct FCSP::Impl{
 		return 0;
 	}
 
-	string encodeHeteroAtoms(int dir, int start, vector<int>& commonCh)
+	string encodeHeteroAtoms(int dir, int start, vector<vd>& commonCh)
 	{
 		stringstream s;
 		for (int i = 0, j = start; i < commonCh.size(); i++, j += dir)
@@ -960,9 +778,9 @@ struct FCSP::Impl{
 	}
 
 	//Строим запись "хвоста" по стартовому циклу, двигаясь по огибающей (common) в обе стороны
-	string encodeTail(int firstCycle, vector<int>& commonCh, vector<Edge>& common, int totalCycles)
+	string encodeTail(int firstCycle, vector<vd>& commonCh, vector<Edge>& common, int totalCycles)
 	{
-		auto& firstChain = chains[firstCycle];
+		auto& firstChain = cycles[firstCycle].chain;
 		auto firstIdx = find_if(commonCh.begin(), commonCh.end(), [&firstChain](int v){
 			return find(firstChain.begin(), firstChain.end(), v) != firstChain.end();
 		});
@@ -1005,7 +823,7 @@ struct FCSP::Impl{
 		partial_sort(ccv.begin(), ccv.begin() + 2, ccv.end(), [&intercounts, &cys](int a, int b){
 			int ia = intercounts[a];
 			int ib = intercounts[b];
-			return ia < ib || (ia == ib && cys[a].size() < cys[b].size());
+			return ia < ib || (ia == ib && cys[a].edges.size() < cys[b].edges.size());
 		});
 		auto start = ccv.begin();
 		//Строим огибающий цикл (ребра)
@@ -1017,21 +835,21 @@ struct FCSP::Impl{
 		for (;;)
 		{
 			//which edge to pick
-			pair<int, int> m_edge(-1, -1);
+			pair<vd, vd> m_edge(-1, -1);
 			size_t smallestCCV = 0; //number of ccv entry having the smalles edge so far
 			for (size_t i = 0; i < idxs.size(); i++)
 			{
 				auto n_edge = idxs[i];
-				if (n_edge >= cys[ccv[i]].size())
+				if (n_edge >= cys[ccv[i]].edges.size())
 					continue;
-				auto edge = cys[ccv[i]][n_edge];
-				if (m_edge.first < 0 || edge_less()(edge, m_edge))
+				auto edge = cys[ccv[i]].edges[n_edge];
+				if (m_edge.first == (size_t)-1 || edge_less()(edge, m_edge))
 				{
 					m_edge = edge;
 					smallestCCV = i;
 				}
 			}
-			if (m_edge.first < 0)
+			if (m_edge.first == (size_t)-1)
 				break;
 			auto i = idxs[smallestCCV];
 			auto& c = cys[ccv[smallestCCV]];
@@ -1040,19 +858,19 @@ struct FCSP::Impl{
 			int matches = 0;
 			for (auto x : ccv)
 			{
-				auto er = equal_range(cys[x].begin(), cys[x].end(), c[i], edge_less());
+				auto er = equal_range(cys[x].edges.begin(), cys[x].edges.end(), c.edges[i], edge_less());
 				if (er.first != er.second)
 					matches++;
 			}
-			if (matches == 1 && (common.empty() || common.back().e != c[i]))
-				common.push_back(Edge(c[i], ccv[smallestCCV]));
+			if (matches == 1 && (common.empty() || common.back().e != c.edges[i]))
+				common.push_back(Edge(c.edges[i], ccv[smallestCCV]));
 			assert(is_sorted(common.begin(), common.end()));
 		}
 		auto commonCh = cycleToChain(common, [](const Edge& e){ return e.e; });
 		string head = encodeHead(*start, commonCh, common, ccv.size());
 		string head2 = head;
 		// еще один стартовый цикл (если одинакового размера)
-		if (cycles[*start].size() == cycles[*(start + 1)].size())
+		if (cycles[*start].edges.size() == cycles[*(start + 1)].edges.size())
 		{
 			head2 = encodeHead(*(start + 1), commonCh, common, ccv.size());
 		}
@@ -1072,13 +890,13 @@ struct FCSP::Impl{
 		partial_sort(ccv.begin(), ccv.begin() + 2, ccv.end(), [&intercounts, &cys](int a, int b){
 			int ia = intercounts[a];
 			int ib = intercounts[b];
-			return ia < ib || (ia == ib && cys[a].size() > cys[b].size());
+			return ia < ib || (ia == ib && cys[a].edges.size() > cys[b].edges.size());
 		});
 		start = ccv.begin();
 		string tail = encodeTail(*start, commonCh, common, ccv.size());
 		string tail2 = tail;
 		// еще один стартовый цикл (если одинакового размера)
-		if (cycles[*start].size() == cycles[*(start + 1)].size())
+		if (cycles[*start].edges.size() == cycles[*(start + 1)].edges.size())
 			tail2 = encodeTail(*(start + 1), commonCh, common, ccv.size());
 		if (tail > tail2)
 			tail = tail2;
@@ -1089,7 +907,7 @@ struct FCSP::Impl{
 		buffer << "," << setfill('0') << setw(2) << (aromatic ? piE : 0);
 		buffer << tail;
 		for(auto cc : ccv){
-			fragment.insert(fragment.end(), chains[cc].begin(), chains[cc].end());
+			fragment.insert(fragment.end(), cycles[cc].chain.begin(), cycles[cc].chain.end());
 		}
 		outputPiece(buffer.str(), fragment);
 	}
@@ -1153,14 +971,15 @@ struct FCSP::Impl{
 	void cyclic(ostream& out)
 	{
 		// Кодирование простых циклов
-		for (auto c : chains)
+		for (auto cyc : cycles)
 		{
+			auto& ch = cyc.chain;
 			int piE = 0;
 			// NEW RULE - always output piE for singleton cycles and coupling linked systems
-			for (int v : c)
+			for (vd v : ch)
 				piE += graph[v].piE;
-			vector<pair<string, int>> hatoms;
-			for (int v : c)
+			vector<pair<string, vd>> hatoms;
+			for (vd v : ch)
 			{
 				string s = keyatom(graph, v);
 				if (!s.empty())
@@ -1173,8 +992,8 @@ struct FCSP::Impl{
 			});
 			stringstream buffer;
 			vector<int> fragment;
-			fragment.insert(fragment.end(), c.begin(), c.end());
-			buffer << setfill('0') << setw(1) << c.size()
+			fragment.insert(fragment.end(), ch.begin(), ch.end());
+			buffer << setfill('0') << setw(1) << cyc.edges.size()
 				<< ","
 				<< setfill('0') << setw(2) << piE;
 			bool heterocycle = pivot != hatoms.end();
@@ -1197,14 +1016,15 @@ struct FCSP::Impl{
 		//make a map of intersections
 		intermap.resize(cycles.size()*cycles.size());
 		intermap.clear();
-		vector<pair<int, int>> t;
+		vector<pair<vd, vd>> t;
 		for (size_t i = 0; i < cycles.size(); i++)
 		for (size_t j = i + 1; j < cycles.size(); j++)
 		{
 			auto& c1 = cycles[i];
 			auto& c2 = cycles[j];
 			t.resize(min(c1.size(), c2.size()));
-			auto tend = set_intersection(c1.begin(), c1.end(), c2.begin(), c2.end(), t.begin(), edge_less());
+			auto tend = set_intersection(c1.edges.begin(), c1.edges.end(), c2.edges.begin(), c2.edges.end(), 
+				t.begin(), edge_less());
 			bool intersection = t.begin() != tend;
 			intermap[i*cycles.size() + j] = intersection;
 			intermap[j*cycles.size() + i] = intersection;
@@ -1361,9 +1181,10 @@ private:
 	// unassembled output chunks, assembly depends on format variable
 	vector<string> outPieces;
 	//sorted arrays of edges - basic cycles
-	vector<vector<pair<int, int>>> cycles;
+	//vector<vector<pair<int, int>>> cycles;
 	//same basic cycles represented as chains of vertices
-	vector<vector<int>> chains;
+	//vector<vector<int>> chains;
+	vector<Cycle> cycles;
 	//map of intersection between cycles
 	vector<bool> intermap;
 };
