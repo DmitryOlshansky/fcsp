@@ -157,18 +157,6 @@ struct CollectAsVectors{
 	}
 };
 
-
-int getValence(ChemGraph& graph, ChemGraph::vertex_descriptor vertex)
-{
-	auto edges = out_edges(vertex, graph);
-	int valence = 0;
-	for (auto p = edges.first; p != edges.second; p++)
-	{
-		valence += graph[*p].type;
-	}
-	return valence;
-}
-
 int singleCount(ChemGraph& graph, ChemGraph::vertex_descriptor vertex)
 {
 	auto edges = out_edges(vertex, graph);
@@ -238,10 +226,10 @@ struct FCSP::Impl{
 
 	void process(ostream& out, string filename)
 	{
-		clear();
-		addHydrogen();
+		clear(); // clear state
+		addHydrogen(graph);
 		locatePiElectrons();
-		locateCycles(); //add cyclic DCs
+		locateCycles(); //adds cyclic DCs
 		locateDCs(false);
 		locateIrregular();
 		sortDCs();
@@ -497,33 +485,6 @@ struct FCSP::Impl{
 	}
 
 	
-
-	void addHydrogen()
-	{
-		std::unordered_map<int, int> valences;
-		valences.insert(make_pair(C.code(), 4));
-		valences.insert(make_pair(N.code(), 3));
-		valences.insert(make_pair(O.code(), 2));
-		auto vtx = vertices(graph);
-		for(auto p = vtx.first; p != vtx.second; p++)
-		{
-			//Note: no extra hydrogens for negative ions
-			if(valences.find(graph[*p].code.code()) != valences.end()
-				&& graph[*p].code.charge() >= 0)
-			{
-				int normal_valence = valences[graph[*p].code.code()];
-				// FIXME: counts 1.5 as 4 but that is "works for me"
-				int cur_val = getValence(graph, *p); 
-				// fit with hydrogens if not enough valence
-				for(int i=cur_val; i<normal_valence; i++) 
-				{
-					size_t v = add_vertex(AtomVertex(H), graph);
-					add_edge(*p, v, Bound(1), graph);
-				}
-			}
-		}
-	}
-
 	void locateCycles()
 	{
 		cycles = minimalCycleBasis(graph);

@@ -145,7 +145,8 @@ auto readReplacements(istream& inp) -> vector<Replacement>
 	for_each(sdfs.begin(), sdfs.end(), [&repls](SDF& sdf){
 		int dc = to<int>(sdf.props["DC"][0]);
 		int couple = to<int>(sdf.props["COUPLING"][0]);
-		repls.emplace_back(toGraph(sdf.mol), dc, couple);
+		auto graph = toGraph(sdf.mol);
+		repls.emplace_back(graph, dc, couple);
 	});
 	return repls;
 }

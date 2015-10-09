@@ -19,6 +19,13 @@ struct AtomVertex{
 		code(code_), path(0), valence(0), piE(0), inAromaCycle(false){}
 };
 
+enum {
+	SINGLE = 1,
+	DOUBLE,
+	TRIPPLE,
+	AROMATIC
+};
+
 struct Bound{
 	int type; //
 	Bound(){}
@@ -30,6 +37,8 @@ using vd = ChemGraph::vertex_descriptor;
 using ed = ChemGraph::edge_descriptor;
 
 ChemGraph toGraph(CTab& tab);
+ChemGraph& addHydrogen(ChemGraph& graph);
+int getValence(ChemGraph& graph, ChemGraph::vertex_descriptor vertex);
 void dumpGraph(ChemGraph& graph, std::ostream& out);
 
 template<class T, class EdgeMap>

@@ -1,3 +1,4 @@
+#include <unordered_map>
 #include <boost/graph/graphviz.hpp>
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/visitors.hpp>
@@ -22,6 +23,44 @@ ChemGraph toGraph(CTab& tab)
 	{
 		add_edge(vrange.first[b.a1] - 1, vrange.first[b.a2] - 1, Bound(b.type), graph);
 	});
+	return graph;
+}
+
+int getValence(ChemGraph& graph, ChemGraph::vertex_descriptor vertex)
+{
+	auto edges = out_edges(vertex, graph);
+	int valence = 0;
+	for (auto p = edges.first; p != edges.second; p++)
+	{
+		valence += graph[*p].type;
+	}
+	return valence;
+}
+
+ChemGraph& addHydrogen(ChemGraph& graph)
+{
+	std::unordered_map<int, int> valences;
+	valences.insert(make_pair(C.code(), 4));
+	valences.insert(make_pair(N.code(), 3));
+	valences.insert(make_pair(O.code(), 2));
+	auto vtx = vertices(graph);
+	for(auto p = vtx.first; p != vtx.second; p++)
+	{
+		//Note: no extra hydrogens for negative ions
+		if(valences.find(graph[*p].code.code()) != valences.end()
+			&& graph[*p].code.charge() >= 0)
+		{
+			int normal_valence = valences[graph[*p].code.code()];
+			// FIXME: counts 1.5 as 4 but that is "works for me"
+			int cur_val = getValence(graph, *p); 
+			// fit with hydrogens if not enough valence
+			for(int i=cur_val; i<normal_valence; i++) 
+			{
+				size_t v = add_vertex(AtomVertex(H), graph);
+				add_edge(*p, v, Bound(1), graph);
+			}
+		}
+	}
 	return graph;
 }
 
@@ -110,8 +149,6 @@ struct markLoops : public dfs_visitor<>{
 	}
 };
 
-
-
 // just array of sorted pairs
 vector<vector<pair<vd,vd>>> cycleBasis(ChemGraph& graph)
 {
@@ -153,6 +190,11 @@ Cycle& Cycle::markAromatic(ChemGraph& g)
 		for (auto n : chain)
 		{
 			g[n].inAromaCycle = true;
+		}
+		for (auto e : edges)
+		{
+			auto ed = edge(e.first, e.second, g);
+			g[ed.first].type = AROMATIC;
 		}
 	}
 	return *this;
