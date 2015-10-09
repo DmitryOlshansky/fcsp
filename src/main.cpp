@@ -3,7 +3,6 @@
  */
 #include <stdexcept>
 #include <boost/program_options.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/filesystem.hpp>
 #include <stdio.h>
 #include <iostream>
@@ -13,7 +12,37 @@
 #include "log.hpp"
 
 using namespace std;
-using boost::lexical_cast;
+
+#ifdef __linux__
+#include <unistd.h>
+
+// array of default search paths for descriptor database
+// on linux also try ../share/fcss-2a/descr
+vector<string> descrPaths()
+{
+	char buf[2048];
+	int len = readlink("/proc/self/exe", buf, sizeof(buf));
+	auto defaults = vector<string>({"."});
+	if(len)
+	{
+		auto exe = string(buf, len);
+		auto p = exe.find_last_of("/");
+		auto share = exe.substr(0, p) + "/../share/fcss-2a/descr";
+		defaults.insert(defaults.begin(), share);
+	}
+	return defaults;
+}
+
+#else
+
+// just deafult to current directory
+vector<string> descrPaths()
+{
+	return vector<string>({"."});
+}
+
+#endif
+
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -48,13 +77,51 @@ FCSPFMT toFCSPFMT(string fmt)
 	throw logic_error("No such format "+fmt);
 }
 
+FCSPOptions configure(vector<string> paths, bool long41, FCSPFMT fmt)
+{
+	auto default_ex = logic_error("DB not found in any of search paths");
+	string found = "";
+	exception& ex = default_ex;
+	vector<LevelOne> order1;
+	vector<LevelTwo> order2;
+	vector<Replacement> replacements;
+  for(auto p : paths)
+	{
+		LOG(DEBUG) << "Trying to load DCs from " << p << endline;
+  	try{
+  		auto descrBase = fs::path(p);
+  		ifstream descr1((descrBase / "descr1.csv").c_str());
+		  if(!descr1)
+		  	throw logic_error("Failed to open descr1.csv DB, check your -d option");
+		  ifstream descr2((descrBase / "descr2.sdf").c_str());
+		  if(!descr2)
+				throw logic_error("Failed to open descr2.sdf DB, check -d option");
+			ifstream repl((descrBase / "replacement.sdf").c_str());
+			if(!repl)
+				throw logic_error("Failed to open replacement.sdf DB, check -d option");
+			order1 = read1stOrder(descr1);
+			order2 = read2ndOrder(descr2);
+			replacements = readReplacements(repl);
+			found = p;
+			break;
+		}
+		catch(exception &te){
+			ex = te;
+		}
+	}
+	if(found.empty())
+		throw ex;
+	else
+		LOG(INFO) << "Loaded DCs from "<< found << endline;
+	return {order1, order2, replacements, long41, fmt};
+}
+
 int main(int argc, const char* argv[])
 {
 	bool plot = false;
 	bool long41 = true;
 	string descriptors;
 	FCSPFMT fmt = FCSPFMT::JSON;
-
 	vector<string> inputs;
 	po::options_description visible("Options");
 	visible.add_options()
@@ -92,45 +159,36 @@ int main(int argc, const char* argv[])
 		plot = vars.count("plot") ? vars["plot"].as<bool>() : false;
 		descriptors = vars.count("descriptors") ? vars["descriptors"].as<string>() : ".";
 	}
-	catch(const po::invalid_command_line_syntax &e) {
-        switch (e.kind()) {
-        case po::invalid_syntax::missing_parameter:
-            cerr << "Missing argument for option '" << e.tokens() << "'.\n";
-            break;
-        default:
-            cerr << "Syntax error: " << (int)e.kind() << "\n";
-            break;
-        };
-        return 1;
-    }
-    catch (const po::unknown_option &e) {
-        cerr << "Unknown option '" << e.get_option_name() << "'\n";
-        return 1;
-    }
-    fs::path base(descriptors);
-    ifstream descr1((base / "descr1.csv").c_str());
-    if(!descr1){
-    	cerr << "Failed to open descr1.csv, check your -d option" << endline;
-    	return 1;
-    }
-    ifstream descr2((base / "descr2.sdf").c_str());
-    if(!descr2){
-		cerr << "Failed to open descr2.sdf, check -d option" << endline;
-		return 1;
-	}
-	ifstream repl((base / "replacement.sdf").c_str());
+	catch(const po::invalid_command_line_syntax &e){
+    switch (e.kind()) {
+      case po::invalid_syntax::missing_parameter:
+          cerr << "Missing argument for option '" << e.tokens() << "'.\n";
+          break;
+      default:
+          cerr << "Syntax error: " << (int)e.kind() << "\n";
+          break;
+      };
+      return 1;
+  }
+  catch (const po::unknown_option &e) {
+      cerr << "Unknown option '" << e.get_option_name() << "'\n";
+      return 1;
+  }
 	try{
-		vector<LevelOne> order1 = read1stOrder(descr1);
-		vector<LevelTwo> order2 = read2ndOrder(descr2);
-		vector<Replacement> replacements = readReplacements(repl);
-		FCSP fcsp({order1, order2, replacements, long41, fmt});
-        if(inputs.empty()){
-            fcsp.load(cin);
-            fcsp.process(cout);
-        }
+		auto paths = descrPaths();
+		if(descriptors != ".")
+			paths.insert(paths.begin(), descriptors);
+		FCSP fcsp(configure(paths, long41, fmt));
+    if(inputs.empty())
+    {
+        fcsp.load(cin);
+        fcsp.process(cout);
+    }
 		else
-            for(auto& arg : inputs)
-            	processFile(fcsp, arg, plot);
+		{
+      for(auto& arg : inputs)
+    		processFile(fcsp, arg, plot);
+		}
 	}
 	catch(std::exception& e)
 	{

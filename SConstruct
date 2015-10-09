@@ -30,3 +30,4 @@ src = Glob("src/*.cpp")
 prog = env.Program('fcss-2a', src, LIBS=libs);
 env.Alias("install", env.Install(os.path.join(prefix, "bin"), prog))
 env.Alias("install", env.Install(os.path.join(prefix, "bin"), 'fcss-comp'))
+env.Alias("install", env.Install(os.path.join(prefix, "share/fcss-2a/descr"), ['descr1.csv', 'descr2.sdf', 'replacement.sdf']))
