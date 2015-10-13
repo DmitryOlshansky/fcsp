@@ -14,6 +14,14 @@
 #include <ostream>
 #include "periodic.hpp"
 
+enum {
+	SINGLE = 1,
+	DOUBLE,
+	TRIPPLE,
+	AROMATIC,
+	STEREO = 0x10, // multiplier for stereo flags
+};
+
 //one atom entry in a MOL file
 struct AtomEntry{
 	double x,y,z;

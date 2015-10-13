@@ -19,12 +19,6 @@ struct AtomVertex{
 		code(code_), path(0), valence(0), piE(0), inAromaCycle(false){}
 };
 
-enum {
-	SINGLE = 1,
-	DOUBLE,
-	TRIPPLE,
-	AROMATIC
-};
 
 struct Bound{
 	int type; //

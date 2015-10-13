@@ -60,7 +60,7 @@ for i in range(len(leftData)):
 	try:
 		right = next(rdta for rdta in rightData if rdta[0] == mol)
 	except:
-		error("MOL filename mismatch at line %d" % i)
+		error("MOL filename mismatch at line %d" % (i+1))
 
 	codesL = codes_to_set(leftData[i][1])
 	codesR = codes_to_set(right[1])

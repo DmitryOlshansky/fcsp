@@ -2,9 +2,7 @@
 LOG_LEVEL=3 # warn-s and worse
 for t in tests/* ; do
 	echo "Encoding" `echo -n $t | sed -r 's|.*/(.*)|\1|'`
-	FILES=`echo $t/MOL/*.MOL | sort`
-#	echo $FILES
-	echo "$FILES" | xargs -n 2 ./fcss-2a -v ${LOG_LEVEL} --format=csv  > $t/fcss-2a-dev.csv
+	find $t/MOL/ -name '*.MOL' | sort | xargs -n 10 ./fcss.sh -v ${LOG_LEVEL} --format=csv  > $t/fcss-2a-dev.csv
 done 2>test-suite.log
 
 for t in tests/* ; do

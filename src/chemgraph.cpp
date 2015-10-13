@@ -132,6 +132,12 @@ struct markLoops : public dfs_visitor<>{
 			return p.first == c.first && p.second == c.second;
 		}) == path.end())
 		{
+			// ignore any cycles with stereo bonds 
+			if(find_if(path.begin(), path.end(), [&g](const pair<int, int> &p){
+				auto e = edge(p.first, p.second, g);
+				return g[e.first].type >= STEREO;
+			}) != path.end())
+				return;
 			auto end = find_if(path.rbegin(), path.rend(), [a](const pair<int, int> &p){
 				return p.second == a;
 			});

@@ -120,7 +120,7 @@ CTab readMol(Parser& parser)
 		if(first < 0 || second < 0 ||
 				first > (int)tab.atoms.size() || second > (int)tab.atoms.size())
 			error("bad bounds indices - out of range.");
-		tab.bounds[i] = BoundEntry(first, second, ttt);
+		tab.bounds[i] = BoundEntry(first, second, ttt | (sss*STEREO));
 	}
 	// old-style properties M  PROP_NAME ......
 	for(;;)

@@ -200,6 +200,7 @@ struct FCSP::Impl{
 		outPieces.clear();
 		dcs.clear();
 		dcsAtoms.clear();
+		reserved_dcs.clear();
 		cycles.clear();
 	}
 
@@ -684,11 +685,11 @@ struct FCSP::Impl{
 			if (cycNum != p.first->cycNum)
 			{
 				//cout << "Cycle!" << endline;
-				static string tab = "ABCDEFGHK";
+				static string tab = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 				cycCount++;
 				if (cycCount > 2)
 				{
-					assert(prevEdgeNum > 0 && prevEdgeNum < 9); //TODO: error on this
+					assert(prevEdgeNum > 0 && prevEdgeNum < 20); //TODO: error on this
 					cyclic_out << setw(1) << tab[prevEdgeNum-1]
 						<< setw(1) << cycles[cycNum].edges.size();
 				}
