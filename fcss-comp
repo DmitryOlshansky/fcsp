@@ -51,6 +51,8 @@ def strip_counts(s):
 # summary stats
 surplas = 0
 deficit = 0
+common = 0
+common2 = 0 # double accounting
 
 for i in range(len(leftData)):
 	left = leftData[i]
@@ -79,7 +81,11 @@ for i in range(len(leftData)):
 			print("%s +++ " % mol, " ".join(deltaR))
 		deficit += len(deltaL)
 		surplas += len(deltaR)
+		common += len(codesL) - len(deltaL)
+		common2 += len(codesR) - len(deltaR)
 	print("=================")
+assert common2 == common
 print("===== SUMMARY ====")
 print("MISSING: %s" % deficit)
 print("EXTRA: %s" % surplas)
+print("COMMON: %s" % common)
