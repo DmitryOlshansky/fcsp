@@ -1,9 +1,12 @@
 #!/bin/bash
 
-echo "file,missing,extra"
+echo "Выборка,Только в ФКСП-2,Только в ФКСП-2А,Общие для ФКСП-2 и ФКСП-2А"
 for t in tests/* ; do
-	DATA=`fcss-comp $t/fcss-2.csv $t/fcss-2a.csv |  grep -A 5 "SUMMARY" | tail -2`
-	MISSING=`echo "$DATA" | sed -r '/EXTRA:.*/d;s/MISSING:\s*(.*)/\1/'`
-	EXTRA=`echo "$DATA" | sed -r '/MISSING:.*/d;s/EXTRA:\s*(.*)/\1/'`
-	echo $t, $MISSING, $EXTRA
+	DATA=`fcss-comp -i $t/fcss-2.csv $t/fcss-2a.csv |  grep -A 5 "SUMMARY" | tail -3`
+	COUNTS=`echo "$DATA" | cut -f2 -d ':'`
+	echo -n $t
+	for f in $COUNTS ; do
+		echo -n ",$f"
+	done
+	echo
 done
