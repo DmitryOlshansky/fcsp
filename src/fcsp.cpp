@@ -87,7 +87,7 @@ struct TrackPath: public default_bfs_visitor {
 			return p.first == tgt;
 		});
 		pass_4546 = sdc.second != 45 && sdc.second != 46 && edc.second != 45 && edc.second != 46;
-		LOG(DEBUG) << (pass_4546 ? "Passing" :"Not passing") <<" DC 45-46 while going "
+		LOG(TRACE) << (pass_4546 ? "Passing" :"Not passing") <<" DC 45-46 while going "
 			<< sdc.second << "-->"<< edc.second << endline; 
 	}
 
@@ -152,7 +152,8 @@ struct CollectAsVectors{
 		{
 			in_big.push_back(get(f, *p));
 		}
-		mappings.push_back(in_big);
+		using std::move;
+		mappings.push_back(move(in_big));
 		return true;
 	}
 };
@@ -366,7 +367,7 @@ struct FCSP::Impl{
 					continue;
 				if (j->valence != valency)
 					continue;
-				LOG(DEBUG) << "Candidate DC "<< j->dc <<" CENTER " << j->center.symbol() << " VALENCE "<< valency << endline;
+				LOG(TRACE) << "Candidate DC "<< j->dc <<" CENTER " << j->center.symbol() << " VALENCE "<< valency << endline;
 
 				vector<int> atoms; // atoms in this center
 				size_t cand_bnds = edges.second - edges.first;
@@ -778,7 +779,6 @@ struct FCSP::Impl{
 			}
 			intercounts[n] = c;
 		}
-		// cout << ccv.size() << endline;
 		//Выбираем стартовый цикл - минимальный по числу пересечений (крайний), минимальный по числу элементов
 		//ищем сразу 2 стартовых цикла, на случай, где они одинково хорошо подходят
 		auto& cys = cycles;
@@ -828,6 +828,10 @@ struct FCSP::Impl{
 				common.push_back(Edge(c.edges[i], ccv[smallestCCV]));
 			assert(is_sorted(common.begin(), common.end()));
 		}
+		LOG(DEBUG) << "COMMON EDGE SET:";
+		for(auto e : common)
+			LOG(DEBUG) << e.e << " ";
+		LOG(DEBUG) << endline;
 		auto commonCh = cycleToChain(common, [](const Edge& e){ return e.e; });
 		string head = encodeHead(*start, commonCh, common, ccv.size());
 		string head2 = head;
@@ -990,8 +994,8 @@ struct FCSP::Impl{
 			bool intersection = t.begin() != tend;
 			intermap[i*cycles.size() + j] = intersection;
 			intermap[j*cycles.size() + i] = intersection;
-		}
-		/*for (size_t i = 0; i < cycles.size(); i++)
+		}/*
+		for (size_t i = 0; i < cycles.size(); i++)
 		{
 			for (size_t j = 0; j < cycles.size(); j++)
 			{

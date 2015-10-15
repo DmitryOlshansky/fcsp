@@ -1,10 +1,16 @@
+// Std
+#include <algorithm>
+#include <deque>
 #include <unordered_map>
+// Boost
 #include <boost/graph/graphviz.hpp>
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/visitors.hpp>
+// Our stuff 
 #include "chemgraph.hpp"
 #include "ctab.hpp"
 #include "log.hpp"
+#include "gauss.hpp"
 
 using namespace std;
 using namespace boost;
@@ -69,7 +75,7 @@ class CodeWriter {
 public:
 	CodeWriter(ChemGraph& graph):g(graph){}
 	template <class VertexOrEdge>
-	void operator()(std::ostream& out, const VertexOrEdge& v) const {
+	void operator()(ostream& out, const VertexOrEdge& v) const {
 	  out << "[label=\"" << g[v].code.symbol() << " [" << v << "]" << "\"]";
 	}
 private:
@@ -91,6 +97,22 @@ ostream& operator<<(ostream& stream, const Cycle& cycle)
 	return stream;
 }
 
+inline set<pair<size_t, size_t>> chainToEdgeSet(const vector<size_t>& v){
+    assert(v.size() > 1);
+    set<pair<size_t,size_t>> out;
+    for(size_t i=1; i<v.size(); i++){
+        if(v[i-1] < v[i])
+            out.insert(make_pair(v[i-1], v[i]));
+        else
+            out.insert(make_pair(v[i], v[i-1]));
+    }
+    if(v.front() < v.back())
+        out.insert(make_pair(v.front(), v.back()));
+    else
+        out.insert(make_pair(v.back(), v.front()));
+    return out;
+}
+
 
 void logCycle(vector<pair<vd,vd>>& c)
 {
@@ -102,77 +124,16 @@ void logCycle(vector<pair<vd,vd>>& c)
 }
 
 
-struct markLoops : public dfs_visitor<>{
-	vector<pair<vd,vd>> path;
-	vector<vector<pair<vd, vd>>>& cycles;
-	markLoops(vector<vector<pair<vd, vd>>> &cycles_) :
-		cycles(cycles_){}
-
-	template<class Edge, class Graph>
-	void tree_edge(Edge e, Graph& g)
-	{
-		auto a = source(e, g);
-		auto b = target(e, g);
-		//back-track to the start of this edge
-		while (!path.empty() && path.back().second != a){
-			path.pop_back();
-		}
-		path.emplace_back(a, b);
-		LOG(TRACE) << a << "-->" << b << endline;
-	}
-
-	template<class Edge, class Graph>
-	void back_edge(Edge e, Graph& g)
-	{
-		auto a = source(e, g);
-		auto b = target(e, g);
-		auto c = make_pair(b, a);
-		LOG(TRACE) << a << "++>" << b << endline;
-		if (find_if(path.begin(), path.end(), [c](const pair<int, int> &p){
-			return p.first == c.first && p.second == c.second;
-		}) == path.end())
-		{
-			// ignore any cycles with stereo bonds 
-			if(find_if(path.begin(), path.end(), [&g](const pair<int, int> &p){
-				auto e = edge(p.first, p.second, g);
-				return g[e.first].type >= STEREO;
-			}) != path.end())
-				return;
-			auto end = find_if(path.rbegin(), path.rend(), [a](const pair<int, int> &p){
-				return p.second == a;
-			});
-			auto len = path.rend() - end;
-			auto start = find_if(path.begin(), path.begin() + len, [b](const pair<int, int> &p){
-				return p.first == b;
-			});
-			vector<pair<vd, vd>> v{ start, path.begin()+len };
-			v.emplace_back(a, b);
-			LOG(DEBUG) << "~~~~~" << endline;
-			logCycle(v);
-			cycles.push_back(std::move(v));
-			LOG(DEBUG) << "*****" << endline;
-		}
-	}
-};
-
-// just array of sorted pairs
-vector<vector<pair<vd,vd>>> cycleBasis(ChemGraph& graph)
-{
-	vector<vector<pair<vd,vd>>> cycles;
-	depth_first_search(graph, markLoops(cycles), get(&AtomVertex::color, graph));
-	for (auto & c : cycles)
-	{
-		transform(c.begin(), c.end(), c.begin(), [](const pair<vd, vd> &p){ 
-			return p.first < p.second ? p : make_pair(p.second, p.first);
-		});
-		sort(c.begin(), c.end(), edge_less());
-	}
-	return cycles;
-}
-
 Cycle::Cycle(vector<pair<vd, vd>> edges_):edges(edges_)
 {
 	chain = cycleToChain(edges, [](const pair<vd,vd>&p){ return p; });
+}
+
+Cycle::Cycle(vector<vd> chain_):chain(chain_)
+{
+	auto eset = chainToEdgeSet(chain_);
+	edges.resize(eset.size());
+	copy(eset.begin(), eset.end(), edges.begin());
 }
 
 Cycle& Cycle::markAromatic(ChemGraph& g)
@@ -206,63 +167,263 @@ Cycle& Cycle::markAromatic(ChemGraph& g)
 	return *this;
 }
 
-vector<Cycle> minimalCycleBasis(ChemGraph& graph)
-{
-	auto cycles = cycleBasis(graph);
-	LOG(DEBUG) << "BEFORE SPLIT" << endline;
-	for_each(cycles.begin(), cycles.end(), &logCycle);
-	vector<pair<vd, vd>> t, t2, uc, xc;
-	//TODO: need some solid proof and potentially incorrect in complex cases:
-	// what happens after 2 cycles are replaced with XOR or U of original pair?
-	for (int q = 0; q < 10; q++)//hack
-	for (size_t i = 0; i < cycles.size(); i++)
-	for (size_t j = i + 1; j < cycles.size(); j++)
-	{
-		auto& c1 = cycles[i];
-		auto& c2 = cycles[j];
-		t.resize(min(c1.size(), c2.size()));
-		t2.resize(max(c1.size(), c2.size()));
-		auto tend = set_intersection(c1.begin(), c1.end(), c2.begin(), c2.end(), t.begin(), edge_less());
-		if (t.begin() == tend) // empty intersection
-			continue;
-		uc.resize(c1.size() + c2.size());
-		xc.resize(c1.size() + c2.size());
-		auto xcend = set_symmetric_difference(c1.begin(), c1.end(), c2.begin(), c2.end(), xc.begin(), edge_less());
-		//uc.resize(ucend - uc.begin());
-		xc.resize(xcend - xc.begin());
-		size_t len1 = c1.size(), len2 = c2.size();
-		size_t /*lenU = uc.size(),*/ lenX = xc.size();
-		pair<size_t, vector<pair<vd, vd>>*> result[4];
-		result[0] = make_pair(len1, &c1);
-		result[1] = make_pair(len2, &c2);			
-		int m = 2;
-		/*if (uc != c1)
-			result[m++] = make_pair(lenU, &uc);
-		else*/ if (xc != c2)
-			result[m++] = make_pair(lenX, &xc);
-		for (int k = 0; k < m; k++)
-		{
-			LOG(TRACE) << result[k].first << " ";
-		}
-		LOG(TRACE) << endline;
-		sort(result, result + m, [](pair<size_t, vector<pair<vd, vd>>*> a, pair<size_t, vector<pair<vd, vd>>*> b){
-			return a.first < b.first;
-		});
 
-		if ((&c1 == result[0].second && &c2 == result[1].second) ||
-			(&c1 == result[1].second && &c2 == result[0].second))
-			continue; //same cycles have won
-		auto n1 = *result[1].second;
-		auto n2 = *result[0].second;
-		LOG(TRACE) << n1.size() << " " << n2.size() << endline;
-		c1 = n1;
-		c2 = n2;
-	}
-	LOG(DEBUG) << "AFTER SPLIT" << endline;
-	for_each(cycles.begin(), cycles.end(), &logCycle);
-	vector<Cycle> minCycles;
-	transform(cycles.begin(), cycles.end(), back_inserter(minCycles), [](vector<pair<vd,vd>>& cyc){
-		return Cycle(cyc);
-	});
-	return minCycles;
+struct BfsNoop{
+    void onVertex(size_t v){}
+};
+
+// assuming constant edge weight - no priority queue required
+template<class Policy=BfsNoop>
+struct ShortestPaths : Policy{
+public:
+    using G = ChemGraph;
+    
+    ShortestPaths(G& graph, size_t start, const vector<bool>& m=vector<bool>()):
+    g(graph), visited(num_vertices(graph)), edgeTo(num_vertices(graph)), s(start), mask(m){
+        queue.push_back(start);
+        visited[start] = true;
+        edgeTo[start] = 1<<(sizeof(size_t)*8-1);
+        bfs();
+    }
+    // apply functor to each node along the shortest path from v to starting point 
+    // except the starting point itself
+    template<class Fn>
+    void apply(size_t v, Fn&& fn, bool includeStart=false){
+        if(!visited[v]) // cut apply for unexplored vertices
+            return;
+        size_t w = v;
+        while(w != s){
+            fn(w);
+            w = edgeTo[w];
+        }
+        if(includeStart)
+            fn(s);
+    }
+    // get shortest path to s
+    vector<size_t> path(size_t v, bool includeStart=false){
+        vector<size_t> vec;
+        apply(v, [&vec](size_t w){ vec.push_back(w); }, includeStart);
+        return vec;
+    }
+
+    // get prior vertex on path to this one
+    size_t prev(size_t p){
+        return edgeTo[p];
+    }
+private:
+    void bfs(){
+        while(!queue.empty()){
+            size_t v = queue.front();
+            queue.pop_front();
+            // push all not visited
+            auto adj = adjacent_vertices(v, g);
+        	for(auto p = adj.first; p != adj.second; p++ ){
+        		auto w = *p;
+                if(!visited[w] && (mask.empty() || mask[w])){
+                    edgeTo[w] = v;
+                    visited[w] = true;
+                    queue.push_back(w);
+                }
+            }
+        }
+    }
+    G& g;
+    vector<bool> visited;
+    vector<size_t> edgeTo;
+    deque<size_t> queue;
+    size_t s;
+    const vector<bool>& mask;
+    
+};
+
+ShortestPaths<> shortestPaths(ChemGraph& g, size_t start, const vector<bool>& mask){
+    return ShortestPaths<>(g, start, mask);
+}
+
+
+// depth-first search to detect all cycles
+// ploicy-based design, final processing is deffered to the inherited policy
+template<class Policy>
+struct CycleDetect : Policy{
+public:
+    using G = ChemGraph;
+    CycleDetect(G& graph, size_t start):Policy(), g(graph), visited(num_vertices(graph)){
+        dfs(start);
+    }
+
+private:
+    void dfs(size_t v){
+        visited[v] = true;
+        auto prev = path.size() ? path.back() : -1;
+        path.push_back(v);
+        auto adj = adjacent_vertices(v, g);
+        for(auto p = adj.first; p != adj.second; p++ ){
+        	auto w = *p;
+            auto e = edge(v, w, g);
+            // TODO: turn to predicate or just use Boost DFS
+            if(g[e.first].type >= STEREO)
+                continue;
+            if(!visited[w]){
+                dfs(w); //pushes w on path
+                path.pop_back();
+            }
+            else if(w != prev){ // visited and not previous one
+                auto i = find(path.begin(), path.end(), w);
+                if(i != path.end()) //cycle
+                    Policy::onCycle(i, path.end());
+            }
+        }
+    }
+    G& g;
+    vector<bool> visited;
+    vector<int> path;
+};
+
+struct FetchCycles{
+    vector<vector<size_t>> cycles;
+    template<class I>
+    void onCycle(I beg, I end){
+        cycles.emplace_back(beg, end);
+    }
+};
+
+//some cycle basis not even Horton's cycle basis
+vector<vector<size_t>> cycleBasis(ChemGraph& g, size_t start=0){
+    return CycleDetect<FetchCycles>(g, start).cycles;
+}
+
+vector<Cycle> minimalCycleBasis(ChemGraph& g){
+    vector<vector<size_t>> isolatedCycles; // 
+    vector<vector<size_t>> basisCandidates; // that are not isolated
+    auto const V = num_vertices(g);
+    vector<vd> inCycle(V); // >0 if v is on some cycle
+    vector<bool> inCycleSystem(V); // if v is in some cycle system
+    LOG(DEBUG)<<"IN CYCLE: "<<inCycle<<endline;
+    // find isolated cycles and enumerate vertices belonging to some cycle
+    {
+        vector<vector<size_t>> someCycles = cycleBasis(g);
+        LOG(DEBUG) << "G SIZE:" << V << endline << "CYCLES ARE:" << endline;
+        for(auto &c : someCycles)
+        	LOG(DEBUG) << c << endline;
+        // count number of times a cycles passes through a vertex
+        for(auto& c : someCycles){
+            for(size_t v : c){
+                inCycle[v]++;
+                inCycleSystem[v] = 1; // consider every as non-isoalted
+            }
+        }
+        
+        // test each cycle
+        for(auto& c : someCycles){
+            int total = accumulate(c.begin(), c.end(), 0, 
+                [&inCycle](int sum, size_t v){
+                return sum + inCycle[v];
+            });
+            // no other cycles passing though isolated cycle's vertices
+            // therefore sum == length of cycle
+            if(total == (int)c.size()){
+                isolatedCycles.push_back(c);
+                for(auto v : c) // filter out isolated cycles from cycle systems
+                    inCycleSystem[v] = 0;
+            }
+            
+        }
+    }
+    LOG(DEBUG)<<"IN CYCLE: "<<inCycle<<endline;
+
+    // from now on consider only vertices from some cycles
+    // find connection points - vertices with > 2 adjacent
+    vector<size_t> connPts; 
+    for(size_t v=0; v<num_vertices(g); v++){
+    	if(inCycle[v] <= 1)
+            continue; //vertex in an isolated cycle
+        auto adj = adjacent_vertices(v, g);
+        size_t neib = count_if(adj.first, adj.second,
+            [&inCycle](vd a){
+                return inCycle[a] > 0;
+        });
+        if(neib > 2){
+            connPts.push_back(v);
+        }
+    }
+    LOG(DEBUG) << "Conn pts.:" << connPts <<endline;
+    // Modified Horton's algorithm (1987)
+    // Each cycle in minimal cycle base
+    // has form : Puw + Pvw + {u, v} (where Pxy is shortest path from x -> y)
+    // Puw & Pvw = {w} (the paths have no common edges)     
+    // Find candidates using these principles
+
+    // Combined with knowledge of connection points, all points being
+    // on some cycle & no isolated cycles we can examine only connection points
+    // for shortest-path trees
+    {
+        for(size_t con : connPts){
+            auto spf = shortestPaths(g, con, inCycleSystem);
+            auto eds = edges(g);
+            for(auto ep = eds.first ; ep != eds.second; ep++){
+            	auto a = target(*ep, g);
+            	auto b = source(*ep, g);
+                if(!inCycleSystem[a] || !inCycleSystem[b])
+                    continue;
+                // drop these along the paths
+                if(spf.prev(a) == b || spf.prev(b) == a)
+                    continue;
+                auto pa = spf.path(a);
+                auto pb = spf.path(b);
+                LOG(DEBUG) << "Two shortest paths from " << con << ": A "<< a 
+                    << "  B " << b << endline;
+                LOG(DEBUG) << pa << endline;
+                LOG(DEBUG) << pb << endline;
+                // both paths w/o starting point 'con'
+                size_t missingLink = con;
+                if(pa.empty() || pb.empty())
+                    continue;
+                // if have common suffix - drop
+                // they must pass through some connection point
+                // that we are going to process anyway
+                if(pa.back() == pb.back())
+                    continue;
+                // add missing link
+                pa.push_back(missingLink);
+                // and follow 2nd path 
+                for_each(pb.rbegin(), pb.rend(), [&pa](size_t v){
+                    pa.push_back(v);
+                });
+                basisCandidates.push_back(pa);
+            }
+        }
+    }
+    // now perform Gaussian ellimination of candidate cycles
+    sort(basisCandidates.begin(), basisCandidates.end(), 
+        [](const vector<size_t>& v1, const vector<size_t>& v2){
+            return v1.size() < v2.size();
+    });
+    vector<set<pair<size_t,size_t>>> basis; // basis accumulated as sets of edges
+    vector<size_t> basisIdx; // indices of these candidates that are in final basis
+    for(size_t i=0; i<basisCandidates.size(); i++){
+        auto s = chainToEdgeSet(basisCandidates[i]);
+        if(!elimination(s, basis)){
+            basis.push_back(s);
+            basisIdx.push_back(i);
+        }
+    }
+    LOG(DEBUG) << "Isolated cycles:\n";
+    for(auto & c : isolatedCycles){
+        LOG(DEBUG) << c << endline;
+    }
+    LOG(DEBUG)<<"Cycle base candidates:\n";
+    for(auto & c : basisCandidates){
+        LOG(DEBUG) << c << endline;
+    }
+    using std::move;
+    vector<Cycle> results;
+    copy(isolatedCycles.begin(), isolatedCycles.end(), back_inserter(results));
+    for(size_t i : basisIdx){
+        results.push_back(Cycle{basisCandidates[i]});
+    }
+    LOG(DEBUG)<<"Minimal cycle base :\n";
+    for(auto& v : results){
+        LOG(DEBUG) << v << endline;
+    }
+    return results;
 }

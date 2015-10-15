@@ -1,8 +1,10 @@
 // An output sink to be used in place of stderr
 // with various verbosity levels
 #pragma once
+#include <vector> // TODO: find a way to remove this include
 #include <iostream>
 #include <iomanip>
+#include <utility>
 
 #define LOG(level) LogSink(level)
 
@@ -47,3 +49,24 @@ enum {
 	DEBUG = 5,
 	TRACE = 6
 };
+
+template<class T1, class T2>
+std::ostream& operator<<(std::ostream& os, const std::pair<T1, T2>& arg){
+	return os << '(' << arg.first << ", "<<arg.second << ')';
+}
+
+// TODO: generalize to any container with begin/end
+template<class T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& arg){
+	os << '[';
+	bool first = true;
+	for(auto& a : arg){
+		if(first)
+			first = false;
+		else
+			os << ", ";
+		os << a;
+	}
+	return os << ']';
+}
+

@@ -278,12 +278,14 @@ Code::Code(const string& sym)
 	}
 	else
 		index = it->second;
+	charge(0);
 }
 
 Code::Code(int code)
 {
 	assert(code < 0 || code < (int)atomList.size());
 	index = code;
+	charge(0);
 }
 
 static bool wildMatch(int wildcard, int atom)

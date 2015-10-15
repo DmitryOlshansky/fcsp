@@ -97,7 +97,7 @@ CTab readMol(Parser& parser)
 		//atom line
 		//xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee
 		double x, y, z;
-		char symbol[4]; //aaa
+		char symbol[4] = { 0 }; //aaa
 		int ddd, ccc, sss, hhh, bbb, vvv, HHH, rrr, iii, mmm, nnn, eee;
 		parser.matchfln("xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee",
 			x, y, z, symbol, ddd, ccc, sss, hhh, bbb, vvv, HHH,
