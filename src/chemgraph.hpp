@@ -95,10 +95,13 @@ public:
 	Cycle(std::vector<std::pair<vd, vd>> edges_);
 	// From chain of vertices
 	Cycle(std::vector<vd> chain);
+	// True if there is intersection of this and that cycle
 	bool intersects(const Cycle& that)const;
-	// is aromatic cycle
+	// Get set of edges of the intersection of this and that
+	std::vector<std::pair<vd,vd>> intersection(const Cycle& c)const;
+	// True if this cylce is aromatic
 	bool aromatic()const{ return aromatic_; }
-	// chemical notion of size - number of edges
+	// Chemical notion of size - number of edges
 	size_t size()const{ return edges.size(); }
 	// sets aromatic flags on atoms and cycle itself iff aromatic
 	Cycle& markAromatic(ChemGraph& graph);

@@ -982,16 +982,12 @@ struct FCSP::Impl{
 		//make a map of intersections
 		intermap.resize(cycles.size()*cycles.size());
 		intermap.clear();
-		vector<pair<vd, vd>> t;
 		for (size_t i = 0; i < cycles.size(); i++)
 		for (size_t j = i + 1; j < cycles.size(); j++)
 		{
 			auto& c1 = cycles[i];
 			auto& c2 = cycles[j];
-			t.resize(min(c1.size(), c2.size()));
-			auto tend = set_intersection(c1.edges.begin(), c1.edges.end(), c2.edges.begin(), c2.edges.end(), 
-				t.begin(), edge_less());
-			bool intersection = t.begin() != tend;
+			bool intersection = c1.intersects(c2);
 			intermap[i*cycles.size() + j] = intersection;
 			intermap[j*cycles.size() + i] = intersection;
 		}/*

@@ -138,24 +138,17 @@ Cycle::Cycle(vector<vd> chain_):chain(chain_)
 
 bool Cycle::intersects(const Cycle& that)const
 {
-   size_t ia = 0, ib = 0;
-   auto& a = edges;
-   auto& b = that.edges;
-   for(;;){
-           if(ia == a.size()) return false;
-           if(ib == a.size()) return false;
-           auto & va = a[ia];
-           auto & vb = b[ib];
-           if(va < vb){
-                   ia ++;
-           }
-           else if(vb < va){
-                   ib++;
-           }
-           else{ // equal - intersection
-               return true;
-           }
-   }
+   return intersection(that).size() > 0; // can be optimized futher
+}
+
+vector<pair<vd,vd>> Cycle::intersection(const Cycle& c)const
+{
+    vector<pair<vd,vd>> ret;
+    auto& c1 = edges;
+    auto& c2 = c.edges;
+    set_intersection(c1.begin(), c1.end(), c2.begin(), c2.end(), 
+        back_inserter(ret));
+    return ret;
 }
 
 Cycle& Cycle::markAromatic(ChemGraph& g)
