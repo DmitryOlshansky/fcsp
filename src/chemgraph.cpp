@@ -136,6 +136,28 @@ Cycle::Cycle(vector<vd> chain_):chain(chain_)
 	copy(eset.begin(), eset.end(), edges.begin());
 }
 
+bool Cycle::intersects(const Cycle& that)const
+{
+   size_t ia = 0, ib = 0;
+   auto& a = edges;
+   auto& b = that.edges;
+   for(;;){
+           if(ia == a.size()) return false;
+           if(ib == a.size()) return false;
+           auto & va = a[ia];
+           auto & vb = b[ib];
+           if(va < vb){
+                   ia ++;
+           }
+           else if(vb < va){
+                   ib++;
+           }
+           else{ // equal - intersection
+               return true;
+           }
+   }
+}
+
 Cycle& Cycle::markAromatic(ChemGraph& g)
 {
 	LOG(TRACE) << "CHAIN: ";

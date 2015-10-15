@@ -91,16 +91,19 @@ public:
 	std::vector<std::pair<vd, vd>> edges; // ordered vertices (first<second)
 	bool aromatic_;
 public:
-	bool aromatic()const{ return aromatic_; }
-	// chemical notion of size - number of edges
-	size_t size()const{ return edges.size(); }
 	// From set of edges
 	Cycle(std::vector<std::pair<vd, vd>> edges_);
 	// From chain of vertices
 	Cycle(std::vector<vd> chain);
-	friend std::ostream& operator<<(std::ostream& stream, const Cycle& cycle);
+	bool intersects(const Cycle& that)const;
+	// is aromatic cycle
+	bool aromatic()const{ return aromatic_; }
+	// chemical notion of size - number of edges
+	size_t size()const{ return edges.size(); }
 	// sets aromatic flags on atoms and cycle itself iff aromatic
 	Cycle& markAromatic(ChemGraph& graph);
+	// output as chain
+	friend std::ostream& operator<<(std::ostream& stream, const Cycle& cycle);
 };
 
 std::ostream& operator<<(std::ostream& stream, const Cycle& cycle);
