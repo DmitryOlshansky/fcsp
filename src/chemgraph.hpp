@@ -26,6 +26,9 @@ struct Bound{
 	Bound(int type_) :type(type_){}
 };
 
+template<typename V, typename E>
+using Graph = boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS, V, E>;
+
 using ChemGraph = boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS, AtomVertex, Bound>;
 using vd = ChemGraph::vertex_descriptor;
 using ed = ChemGraph::edge_descriptor;
@@ -113,3 +116,76 @@ std::ostream& operator<<(std::ostream& stream, const Cycle& cycle);
 
 // Obtain minimal cycle basis
 std::vector<Cycle> minimalCycleBasis(ChemGraph& graph);
+
+// Impl class
+template<class Vertex, class Edge>
+struct ConnectedComponents{
+    using G = Graph<Vertex,Edge>;
+    ConnectedComponents(G& graph):
+    components(), g(graph),labels(boost::num_vertices(graph)), label(0){
+        findComponents();
+    }
+    std::vector<G> components;
+private:
+    void findComponents(){
+    		using namespace boost;
+    		auto const V = num_vertices(g);
+        for(size_t v=0; v<V; v++){
+            if(!labels[v]){
+                ++label; //start new component
+                dfs(v);
+            }
+        }
+        if(label == 1){
+            components.push_back(g);
+            return;
+        }
+        components.resize(label);
+        // for each component map global --> component
+        std::vector<std::vector<size_t>> g2c(label);
+        for(auto & vec : g2c)
+            vec.resize(V);
+
+        // map vertices to components and record positions
+        for(size_t v=0; v<V; v++){
+            int lbl = labels[v] - 1;
+            g2c[lbl][v] = add_vertex(g[v], components[lbl]);
+        }
+        // use map to copy over edges
+        for(size_t v=0; v<V; v++){
+        		auto adj = adjacent_vertices(v, g);
+            for(auto p=adj.first; p!=adj.second; p++){
+            		auto w = *p;
+                if (w < v){ //deduplicate
+                    continue;
+                }
+                int lbl = labels[v] - 1;
+                auto e = edge(v, w, g).first;
+                add_edge(g2c[lbl][v], g2c[lbl][w], g[e], components[lbl]);
+            }
+        }
+    }
+
+    void dfs(size_t v){
+        labels[v] = label;
+        auto adj = adjacent_vertices(v, g);
+        for(auto p = adj.first; p != adj.second; p++){
+        		auto w = *p;
+            if(!labels[w]){
+                dfs(w);
+            }
+        }
+    }
+    G& g;
+    std::vector<int> labels;
+    int label;
+};
+
+
+// Will copy g if it's the only component
+template<class V, class E>
+std::vector<Graph<V,E>> connectedComponents(Graph<V,E> &g)
+{
+    return ConnectedComponents<V,E>(g).components;
+}
+

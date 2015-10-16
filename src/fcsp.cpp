@@ -194,11 +194,13 @@ struct FCSP::Impl{
 	{
 		CTab tab = readMol(inp);
 		graph = toGraph(tab);
+		auto comp = connectedComponents(graph);
 	}
 	// Очистить все переменные состояния кодировщика
 	void clear()
 	{
 		outPieces.clear();
+		outPiecesCycle.clear();
 		dcs.clear();
 		dcsAtoms.clear();
 		reserved_dcs.clear();
@@ -248,7 +250,17 @@ struct FCSP::Impl{
 		::dumpGraph(graph, out);
 	}
 
+	void outputPieceCycle(string code, vector<int>& atoms)
+	{
+		outputPiece_(code, atoms, true);
+	}
+
 	void outputPiece(string code, vector<int>& atoms)
+	{
+		outputPiece_(code, atoms, false);
+	}
+
+	void outputPiece_(string code, vector<int>& atoms, bool cycle)
 	{
 		if(format == FCSPFMT::JSON)
 		{
@@ -257,16 +269,25 @@ struct FCSP::Impl{
 			s << "\"place\": ";
 			printJsArray(atoms, s); 
 			s << "}";
-			outPieces.push_back(s.str());
+			if(cycle)
+				outPiecesCycle.push_back(s.str());
+			else
+				outPieces.push_back(s.str());
 		}
 		else if(format == FCSPFMT::CSV || format == FCSPFMT::TXT)
 		{
-			outPieces.push_back(code);
+			if(cycle)
+				outPiecesCycle.push_back(code);
+			else
+				outPieces.push_back(code);
 		}
 	}
 
 	void outputWhole(ostream& out, string filename)
 	{
+		sort(outPiecesCycle.begin(), outPiecesCycle.end());
+		sort(outPieces.begin(), outPieces.end());
+		outPieces.insert(outPieces.begin(), outPiecesCycle.begin(), outPiecesCycle.end());
 		if(format == FCSPFMT::JSON)
 		{
 			out << "[";
@@ -875,7 +896,7 @@ struct FCSP::Impl{
 		for(auto cc : ccv){
 			fragment.insert(fragment.end(), cycles[cc].chain.begin(), cycles[cc].chain.end());
 		}
-		outputPiece(buffer.str(), fragment);
+		outputPieceCycle(buffer.str(), fragment);
 	}
 
 	void recursePoly(vector<int>& poly, map<int, vector<int>>& adj_list, set<vector<int>>& used)
@@ -977,7 +998,7 @@ struct FCSP::Impl{
 				}
 				buffer << (left_descr < right_descr ? left_descr : right_descr);
 			}
-			outputPiece(buffer.str(), fragment);
+			outputPieceCycle(buffer.str(), fragment);
 		}
 		//make a map of intersections
 		intermap.resize(cycles.size()*cycles.size());
@@ -1141,6 +1162,7 @@ private:
 	map<vd, vector<int>> dcsAtoms;  // extra atoms that belong to each DC  
 	std::unordered_map<vd, int> reserved_dcs; // atoms reserved by specific monolithic DC
 	// unassembled output chunks, assembly depends on format variable
+	vector<string> outPiecesCycle; // cycle descriptors go first on assembly
 	vector<string> outPieces;
 	//sorted arrays of edges - basic cycles
 	//vector<vector<pair<int, int>>> cycles;
