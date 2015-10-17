@@ -667,7 +667,7 @@ struct FCSP::Impl{
 			e(e_), cycNum(cyc){}
 		bool operator<(const Edge& rhs)const
 		{
-			return edge_less()(e, rhs.e);
+			return e < rhs.e;
 		}
 	};
 
@@ -826,7 +826,7 @@ struct FCSP::Impl{
 				if (n_edge >= cys[ccv[i]].edges.size())
 					continue;
 				auto edge = cys[ccv[i]].edges[n_edge];
-				if (m_edge.first == (size_t)-1 || edge_less()(edge, m_edge))
+				if (m_edge.first == (size_t)-1 || edge < m_edge)
 				{
 					m_edge = edge;
 					smallestCCV = i;
@@ -841,7 +841,7 @@ struct FCSP::Impl{
 			int matches = 0;
 			for (auto x : ccv)
 			{
-				auto er = equal_range(cys[x].edges.begin(), cys[x].edges.end(), c.edges[i], edge_less());
+				auto er = equal_range(cys[x].edges.begin(), cys[x].edges.end(), c.edges[i]);
 				if (er.first != er.second)
 					matches++;
 			}

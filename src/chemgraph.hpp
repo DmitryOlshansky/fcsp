@@ -78,16 +78,6 @@ inline bool operator<(const std::pair<T,T>& a, std::pair<T,T>& b){
     return a.first < b.first || (a.first == b.first && a.second < b.second);
 }
 
-// transitional helper for Cycle
-struct edge_less
-{
-	bool operator()(std::pair<vd, vd> lhs, std::pair<vd, vd> rhs)
-	{
-		return lhs < rhs;
-	}
-};
-
-
 struct Cycle{
 public:
 	std::vector<vd> chain;
