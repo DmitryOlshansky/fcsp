@@ -86,6 +86,6 @@ for i in range(len(leftData)):
 	print("=================")
 assert common2 == common
 print("===== SUMMARY ====")
-print("MISSING: %s" % deficit)
-print("EXTRA: %s" % surplas)
 print("COMMON: %s" % common)
+print("EXTRA: %s" % surplas)
+print("MISSING: %s" % deficit)
