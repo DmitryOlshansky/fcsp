@@ -1,7 +1,7 @@
 # fcsp
 An encoder for fragmental code of substructures superposition  (FCSS). FCSP is historical name obtained by transilteration
 
-# Building
+## Building
 
 fcsp is build with [SCons](http://scons.org) tool. There are no extra library dependencies except for [Boost C++](http://www.boost.org).
 
@@ -18,7 +18,7 @@ scons
 
 
 
-# Command-line options
+## Command-line options
 
 Some commonly useful options are:
 `-d|--descriptors` - directory that contains DB of chemical patterns i.e. files descr1.csv, descr2.sdf and replacement.sdf
