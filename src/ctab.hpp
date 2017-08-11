@@ -15,51 +15,51 @@
 #include "periodic.hpp"
 
 enum {
-	SINGLE = 1,
-	DOUBLE,
-	TRIPPLE,
-	AROMATIC,
-	STEREO = 0x10, // multiplier for stereo flags
+    SINGLE = 1,
+    DOUBLE,
+    TRIPPLE,
+    AROMATIC,
+    STEREO = 0x10, // multiplier for stereo flags
 };
 
 //one atom entry in a MOL file
 struct AtomEntry{
-	double x,y,z;
-	Code code;
-	AtomEntry(){}
-	AtomEntry(double x_, double y_, double z_, int h, Code code_):
-		x(x_), y(y_), z(z_), code(code_){}
+    double x,y,z;
+    Code code;
+    AtomEntry(){}
+    AtomEntry(double x_, double y_, double z_, int h, Code code_):
+        x(x_), y(y_), z(z_), code(code_){}
 };
 
 //one bound entry in a MOL file
 struct BoundEntry{
-	int a1, a2; // atom indices
-	int type;   // bound type
-	BoundEntry(){}
-	BoundEntry(int a, int b, int type_):
-		a1(a), a2(b), type(type_){}
+    int a1, a2; // atom indices
+    int type;   // bound type
+    BoundEntry(){}
+    BoundEntry(int a, int b, int type_):
+        a1(a), a2(b), type(type_){}
 };
 
 struct CTab{
 // header block
-	std::string name;
-	std::string descr;
-	std::string comment;
+    std::string name;
+    std::string descr;
+    std::string comment;
 //
-	int atomLists, chiral;
+    int atomLists, chiral;
 // atom block
-	std::vector<AtomEntry> atoms;
+    std::vector<AtomEntry> atoms;
 // bounds block
-	std::vector<BoundEntry> bounds;
+    std::vector<BoundEntry> bounds;
 
-	CTab() :
-		name(), descr(), comment(), atomLists(0), chiral(0), atoms(), bounds(){}
+    CTab() :
+        name(), descr(), comment(), atomLists(0), chiral(0), atoms(), bounds(){}
 };
 
 //a single entry of SDF database file
 struct SDF{
-	CTab mol;
-	std::map<std::string, std::vector<std::string>> props;
+    CTab mol;
+    std::map<std::string, std::vector<std::string>> props;
 };
 
 CTab readMol(std::istream& inp);

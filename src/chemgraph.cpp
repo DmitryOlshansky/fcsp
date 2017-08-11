@@ -17,84 +17,84 @@ using namespace boost;
 
 ChemGraph toGraph(CTab& tab)
 {
-	ChemGraph graph;
-	//add_vertex
-	for_each(tab.atoms.begin(), tab.atoms.end(), [&graph](const AtomEntry& a)
-	{
-		add_vertex(AtomVertex(a.code), graph);
-	});
-	auto vrange = vertices(graph);
-	//add edges
-	for_each(tab.bounds.begin(), tab.bounds.end(), [&graph, &vrange](const BoundEntry& b)
-	{
-		add_edge(vrange.first[b.a1] - 1, vrange.first[b.a2] - 1, Bound(b.type), graph);
-	});
-	return graph;
+    ChemGraph graph;
+    //add_vertex
+    for_each(tab.atoms.begin(), tab.atoms.end(), [&graph](const AtomEntry& a)
+    {
+        add_vertex(AtomVertex(a.code), graph);
+    });
+    auto vrange = vertices(graph);
+    //add edges
+    for_each(tab.bounds.begin(), tab.bounds.end(), [&graph, &vrange](const BoundEntry& b)
+    {
+        add_edge(vrange.first[b.a1] - 1, vrange.first[b.a2] - 1, Bound(b.type), graph);
+    });
+    return graph;
 }
 
 int getValence(ChemGraph& graph, ChemGraph::vertex_descriptor vertex)
 {
-	auto edges = out_edges(vertex, graph);
-	int valence = 0;
-	for (auto p = edges.first; p != edges.second; p++)
-	{
-		valence += graph[*p].type;
-	}
-	return valence;
+    auto edges = out_edges(vertex, graph);
+    int valence = 0;
+    for (auto p = edges.first; p != edges.second; p++)
+    {
+        valence += graph[*p].type;
+    }
+    return valence;
 }
 
 ChemGraph& addHydrogen(ChemGraph& graph)
 {
-	std::unordered_map<int, int> valences;
-	valences.insert(make_pair(C.code(), 4));
-	valences.insert(make_pair(N.code(), 3));
-	valences.insert(make_pair(O.code(), 2));
-	auto vtx = vertices(graph);
-	for(auto p = vtx.first; p != vtx.second; p++)
-	{
-		//Note: no extra hydrogens for negative ions
-		if(valences.find(graph[*p].code.code()) != valences.end()
-			&& graph[*p].code.charge() >= 0)
-		{
-			int normal_valence = valences[graph[*p].code.code()];
-			// FIXME: counts 1.5 as 4 but that is "works for me"
-			int cur_val = getValence(graph, *p); 
-			// fit with hydrogens if not enough valence
-			for(int i=cur_val; i<normal_valence; i++) 
-			{
-				size_t v = add_vertex(AtomVertex(H), graph);
-				add_edge(*p, v, Bound(1), graph);
-			}
-		}
-	}
-	return graph;
+    std::unordered_map<int, int> valences;
+    valences.insert(make_pair(C.code(), 4));
+    valences.insert(make_pair(N.code(), 3));
+    valences.insert(make_pair(O.code(), 2));
+    auto vtx = vertices(graph);
+    for(auto p = vtx.first; p != vtx.second; p++)
+    {
+        //Note: no extra hydrogens for negative ions
+        if(valences.find(graph[*p].code.code()) != valences.end()
+            && graph[*p].code.charge() >= 0)
+        {
+            int normal_valence = valences[graph[*p].code.code()];
+            // FIXME: counts 1.5 as 4 but that is "works for me"
+            int cur_val = getValence(graph, *p); 
+            // fit with hydrogens if not enough valence
+            for(int i=cur_val; i<normal_valence; i++) 
+            {
+                size_t v = add_vertex(AtomVertex(H), graph);
+                add_edge(*p, v, Bound(1), graph);
+            }
+        }
+    }
+    return graph;
 }
 
 
 class CodeWriter {
 public:
-	CodeWriter(ChemGraph& graph):g(graph){}
-	template <class VertexOrEdge>
-	void operator()(ostream& out, const VertexOrEdge& v) const {
-	  out << "[label=\"" << g[v].code.symbol() << " [" << v << "]" << "\"]";
-	}
+    CodeWriter(ChemGraph& graph):g(graph){}
+    template <class VertexOrEdge>
+    void operator()(ostream& out, const VertexOrEdge& v) const {
+      out << "[label=\"" << g[v].code.symbol() << " [" << v << "]" << "\"]";
+    }
 private:
-	ChemGraph& g;
+    ChemGraph& g;
 };
 
 
 void dumpGraph(ChemGraph& graph, ostream& out)
 {
-	write_graphviz(out, graph, CodeWriter(graph));
+    write_graphviz(out, graph, CodeWriter(graph));
 }
 
 ostream& operator<<(ostream& stream, const Cycle& cycle)
 {
-	for (auto & e : cycle.edges)
-	{
-		stream << e.first << "--" << e.second << '\n';
-	}
-	return stream;
+    for (auto & e : cycle.edges)
+    {
+        stream << e.first << "--" << e.second << '\n';
+    }
+    return stream;
 }
 
 inline set<pair<size_t, size_t>> chainToEdgeSet(const vector<size_t>& v){
@@ -116,24 +116,24 @@ inline set<pair<size_t, size_t>> chainToEdgeSet(const vector<size_t>& v){
 
 void logCycle(vector<pair<vd,vd>>& c)
 {
-	for (auto & e : c)
-	{
-		LOG(DEBUG) << e.first << "--" << e.second << '\n';
-	}
-	LOG(DEBUG) << endline;
+    for (auto & e : c)
+    {
+        LOG(DEBUG) << e.first << "--" << e.second << '\n';
+    }
+    LOG(DEBUG) << endline;
 }
 
 
 Cycle::Cycle(vector<pair<vd, vd>> edges_):edges(edges_)
 {
-	chain = cycleToChain(edges, [](const pair<vd,vd>&p){ return p; });
+    chain = cycleToChain(edges, [](const pair<vd,vd>&p){ return p; });
 }
 
 Cycle::Cycle(vector<vd> chain_):chain(chain_)
 {
-	auto eset = chainToEdgeSet(chain_);
-	edges.resize(eset.size());
-	copy(eset.begin(), eset.end(), edges.begin());
+    auto eset = chainToEdgeSet(chain_);
+    edges.resize(eset.size());
+    copy(eset.begin(), eset.end(), edges.begin());
 }
 
 bool Cycle::intersects(const Cycle& that)const
@@ -153,33 +153,33 @@ vector<pair<vd,vd>> Cycle::intersection(const Cycle& c)const
 
 Cycle& Cycle::markAromatic(ChemGraph& g)
 {
-	LOG(TRACE) << "CHAIN: ";
-	for (int k : chain)
-		LOG(TRACE) << k << " - ";
-	LOG(TRACE) << endline;
-	int piEl = 0;
-	for_each(chain.begin(), chain.end(), [&g, &piEl](int n){
-		LOG(TRACE) << "Atom # " << n << " " << g[n].code.symbol() << " pi E = " << g[n].piE << endline;
-		if (g[n].piE > 0)
-			piEl += g[n].piE;
-		//TODO: add debug trace for < 0
-	});
-	aromatic_ = ((piEl - 2) % 4 == 0); // Hukkel rule 4n + 2
-	LOG(TRACE) << "PI E " << piEl << " aromatic? : " << aromatic_ << endline;
-	//assign cyclic-only DC	
-	if (aromatic_)
-	{
-		for (auto n : chain)
-		{
-			g[n].inAromaCycle = true;
-		}
-		for (auto e : edges)
-		{
-			auto ed = edge(e.first, e.second, g);
-			g[ed.first].type = AROMATIC;
-		}
-	}
-	return *this;
+    LOG(TRACE) << "CHAIN: ";
+    for (int k : chain)
+        LOG(TRACE) << k << " - ";
+    LOG(TRACE) << endline;
+    int piEl = 0;
+    for_each(chain.begin(), chain.end(), [&g, &piEl](int n){
+        LOG(TRACE) << "Atom # " << n << " " << g[n].code.symbol() << " pi E = " << g[n].piE << endline;
+        if (g[n].piE > 0)
+            piEl += g[n].piE;
+        //TODO: add debug trace for < 0
+    });
+    aromatic_ = ((piEl - 2) % 4 == 0); // Hukkel rule 4n + 2
+    LOG(TRACE) << "PI E " << piEl << " aromatic? : " << aromatic_ << endline;
+    //assign cyclic-only DC    
+    if (aromatic_)
+    {
+        for (auto n : chain)
+        {
+            g[n].inAromaCycle = true;
+        }
+        for (auto e : edges)
+        {
+            auto ed = edge(e.first, e.second, g);
+            g[ed.first].type = AROMATIC;
+        }
+    }
+    return *this;
 }
 
 
@@ -197,7 +197,7 @@ public:
     g(graph), visited(num_vertices(graph)), edgeTo(num_vertices(graph)), s(start), mask(m){
         queue.push_back(start);
         visited[start] = true;
-        edgeTo[start] = 1<<(sizeof(size_t)*8-1);
+        edgeTo[start] = (size_t)1<<(sizeof(size_t)*8-1);
         bfs();
     }
     // apply functor to each node along the shortest path from v to starting point 
@@ -232,8 +232,8 @@ private:
             queue.pop_front();
             // push all not visited
             auto adj = adjacent_vertices(v, g);
-        	for(auto p = adj.first; p != adj.second; p++ ){
-        		auto w = *p;
+            for(auto p = adj.first; p != adj.second; p++ ){
+                auto w = *p;
                 if(!visited[w] && (mask.empty() || mask[w])){
                     edgeTo[w] = v;
                     visited[w] = true;
@@ -273,7 +273,7 @@ private:
         path.push_back(v);
         auto adj = adjacent_vertices(v, g);
         for(auto p = adj.first; p != adj.second; p++ ){
-        	auto w = *p;
+            auto w = *p;
             auto e = edge(v, w, g);
             // TODO: turn to predicate or just use Boost DFS
             if(g[e.first].type >= STEREO)
@@ -319,7 +319,7 @@ vector<Cycle> minimalCycleBasis(ChemGraph& g){
         vector<vector<size_t>> someCycles = cycleBasis(g);
         LOG(DEBUG) << "G SIZE:" << V << endline << "CYCLES ARE:" << endline;
         for(auto &c : someCycles)
-        	LOG(DEBUG) << c << endline;
+            LOG(DEBUG) << c << endline;
         // count number of times a cycles passes through a vertex
         for(auto& c : someCycles){
             for(size_t v : c){
@@ -350,7 +350,7 @@ vector<Cycle> minimalCycleBasis(ChemGraph& g){
     // find connection points - vertices with > 2 adjacent
     vector<size_t> connPts; 
     for(size_t v=0; v<num_vertices(g); v++){
-    	if(inCycle[v] <= 1)
+        if(inCycle[v] <= 1)
             continue; //vertex in an isolated cycle
         auto adj = adjacent_vertices(v, g);
         size_t neib = count_if(adj.first, adj.second,
@@ -376,8 +376,8 @@ vector<Cycle> minimalCycleBasis(ChemGraph& g){
             auto spf = shortestPaths(g, con, inCycleSystem);
             auto eds = edges(g);
             for(auto ep = eds.first ; ep != eds.second; ep++){
-            	auto a = target(*ep, g);
-            	auto b = source(*ep, g);
+                auto a = target(*ep, g);
+                auto b = source(*ep, g);
                 if(!inCycleSystem[a] || !inCycleSystem[b])
                     continue;
                 // drop these along the paths

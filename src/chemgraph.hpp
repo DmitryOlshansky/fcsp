@@ -6,24 +6,24 @@
 #include "ctab.hpp" // MOL file format (aka CTable)
 
 struct AtomVertex{
-	Code code;
+    Code code;
 // temporaries for DFS that is used to find linear descriptors
-	boost::default_color_type color;
-	int path;
+    boost::default_color_type color;
+    int path;
 // deduced as part of FCSP algorithm
-	int valence; // effective valence
-	int piE; // number of PI-electrons
-	bool inAromaCycle; // is part of aromatic cycle?
-	AtomVertex(){}
-	AtomVertex(Code code_):
-		code(code_), path(0), valence(0), piE(0), inAromaCycle(false){}
+    int valence; // effective valence
+    int piE; // number of PI-electrons
+    bool inAromaCycle; // is part of aromatic cycle?
+    AtomVertex(){}
+    AtomVertex(Code code_):
+        code(code_), path(0), valence(0), piE(0), inAromaCycle(false){}
 };
 
 
 struct Bound{
-	int type; //
-	Bound(){}
-	Bound(int type_) :type(type_){}
+    int type; //
+    Bound(){}
+    Bound(int type_) :type(type_){}
 };
 
 template<typename V, typename E>
@@ -41,35 +41,35 @@ void dumpGraph(ChemGraph& graph, std::ostream& out);
 template<class T, class EdgeMap>
 std::vector<vd> cycleToChain(std::vector<T>& ic, EdgeMap&& mapper)
 {
-	typename std::vector<vd> vc;
-	auto seed = mapper(ic.front());
-	vc.push_back(seed.first);
-	vc.push_back(seed.second);
-	while (vc.front() != vc.back())
-	{
-		bool found = false;
-		for (auto e : ic)
-		{
-			auto p = mapper(e);
-			//has common vertex with back of chain and not == second one
-			if (p.first == vc.back() && p.second != vc[vc.size() - 2])
-				vc.push_back(p.second);
-			else if (p.second == vc.back() && p.first != vc[vc.size() - 2])
-				vc.push_back(p.first);
-			//has common vertex with front of chain and not == second one
-			else if (p.first == vc[0] && p.second != vc[1])
-				vc.insert(vc.begin(), p.second);
-			else if (p.second == vc[0] && p.first != vc[1])
-				vc.insert(vc.begin(), p.first);
-			else
-				continue;
-			found = true;
-			break;
-		}
-		assert(found);
-	}
-	vc.pop_back();
-	return vc;
+    typename std::vector<vd> vc;
+    auto seed = mapper(ic.front());
+    vc.push_back(seed.first);
+    vc.push_back(seed.second);
+    while (vc.front() != vc.back())
+    {
+        bool found = false;
+        for (auto e : ic)
+        {
+            auto p = mapper(e);
+            //has common vertex with back of chain and not == second one
+            if (p.first == vc.back() && p.second != vc[vc.size() - 2])
+                vc.push_back(p.second);
+            else if (p.second == vc.back() && p.first != vc[vc.size() - 2])
+                vc.push_back(p.first);
+            //has common vertex with front of chain and not == second one
+            else if (p.first == vc[0] && p.second != vc[1])
+                vc.insert(vc.begin(), p.second);
+            else if (p.second == vc[0] && p.first != vc[1])
+                vc.insert(vc.begin(), p.first);
+            else
+                continue;
+            found = true;
+            break;
+        }
+        assert(found);
+    }
+    vc.pop_back();
+    return vc;
 }
 
 
@@ -80,26 +80,26 @@ inline bool operator<(const std::pair<T,T>& a, std::pair<T,T>& b){
 
 struct Cycle{
 public:
-	std::vector<vd> chain;
-	std::vector<std::pair<vd, vd>> edges; // ordered vertices (first<second)
-	bool aromatic_;
+    std::vector<vd> chain;
+    std::vector<std::pair<vd, vd>> edges; // ordered vertices (first<second)
+    bool aromatic_;
 public:
-	// From set of edges
-	Cycle(std::vector<std::pair<vd, vd>> edges_);
-	// From chain of vertices
-	Cycle(std::vector<vd> chain);
-	// True if there is intersection of this and that cycle
-	bool intersects(const Cycle& that)const;
-	// Get set of edges of the intersection of this and that
-	std::vector<std::pair<vd,vd>> intersection(const Cycle& c)const;
-	// True if this cylce is aromatic
-	bool aromatic()const{ return aromatic_; }
-	// Chemical notion of size - number of edges
-	size_t size()const{ return edges.size(); }
-	// sets aromatic flags on atoms and cycle itself iff aromatic
-	Cycle& markAromatic(ChemGraph& graph);
-	// output as chain
-	friend std::ostream& operator<<(std::ostream& stream, const Cycle& cycle);
+    // From set of edges
+    Cycle(std::vector<std::pair<vd, vd>> edges_);
+    // From chain of vertices
+    Cycle(std::vector<vd> chain);
+    // True if there is intersection of this and that cycle
+    bool intersects(const Cycle& that)const;
+    // Get set of edges of the intersection of this and that
+    std::vector<std::pair<vd,vd>> intersection(const Cycle& c)const;
+    // True if this cylce is aromatic
+    bool aromatic()const{ return aromatic_; }
+    // Chemical notion of size - number of edges
+    size_t size()const{ return edges.size(); }
+    // sets aromatic flags on atoms and cycle itself iff aromatic
+    Cycle& markAromatic(ChemGraph& graph);
+    // output as chain
+    friend std::ostream& operator<<(std::ostream& stream, const Cycle& cycle);
 };
 
 std::ostream& operator<<(std::ostream& stream, const Cycle& cycle);
@@ -118,8 +118,8 @@ struct ConnectedComponents{
     std::vector<G> components;
 private:
     void findComponents(){
-    		using namespace boost;
-    		auto const V = num_vertices(g);
+            using namespace boost;
+            auto const V = num_vertices(g);
         for(size_t v=0; v<V; v++){
             if(!labels[v]){
                 ++label; //start new component
@@ -143,9 +143,9 @@ private:
         }
         // use map to copy over edges
         for(size_t v=0; v<V; v++){
-        		auto adj = adjacent_vertices(v, g);
+                auto adj = adjacent_vertices(v, g);
             for(auto p=adj.first; p!=adj.second; p++){
-            		auto w = *p;
+                    auto w = *p;
                 if (w < v){ //deduplicate
                     continue;
                 }
@@ -160,7 +160,7 @@ private:
         labels[v] = label;
         auto adj = adjacent_vertices(v, g);
         for(auto p = adj.first; p != adj.second; p++){
-        		auto w = *p;
+                auto w = *p;
             if(!labels[w]){
                 dfs(w);
             }
