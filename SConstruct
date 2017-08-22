@@ -16,7 +16,7 @@ if env['CC'] == 'cl':
     copts = "/EHsc /MD /I%s /link %s" % (boost, boost+"\\stage\\lib")
     if release:
         copts += " /O2"
-    libs = ["libboost_program_options-*", "libboost_system-*", "libboost_filesystem-*"]
+    libs = ["libboost_system-*", "libboost_filesystem-*"]
     libs = [glob.glob(boost_lib+'\\'+lib)[0] for lib in libs]
 elif 'g++' in env['CXX'] or 'clang++' in env['CXX']:
     copts = "-std=gnu++11 -static -Wno-sign-compare -Wall "
@@ -24,9 +24,9 @@ elif 'g++' in env['CXX'] or 'clang++' in env['CXX']:
         copts += "-O2 "
     else:
         copts += "-g "
-    libs = ["boost_system", "boost_filesystem"]
+    libs = ["boost_system", "boost_filesystem", "pthread"]
 
-env.Append(CCFLAGS=copts, LINKFLAGS="-static -L../boost_1_64_0/stage/lib/")
+env.Append(CCFLAGS=copts)
 src = Glob("src/*.cpp")
 prog = env.Program('fcss-2a', src, LIBS=libs);
 env.Alias("install", env.Install(os.path.join(prefix, "bin"), prog))

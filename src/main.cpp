@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
+#include <thread>
 #include "cxxopts.hpp"
 #include "fcsp.hpp"
 #include "ctab.hpp"
@@ -45,7 +46,7 @@ vector<string> descrPaths()
 
 namespace fs = boost::filesystem;
 
-void processFile(FCSP& fcsp, const string& path, bool plot)
+void processFile(FCSP& fcsp, const string& path, ostream& out)
 {
     LOG(INFO) << "Reading " << path << endline;
     fs::path fpath(path);
@@ -54,13 +55,9 @@ void processFile(FCSP& fcsp, const string& path, bool plot)
         LOG(ERROR) << "ERROR: cannot open '" << path << "'\n";
         return;
     }
-    try{
+    try {
         fcsp.load(f);
-        if (plot){
-            ofstream dot(path+".dot");
-            fcsp.dumpGraph(dot);
-        }
-        fcsp.process(cout, fpath.filename().string());
+        fcsp.process(out, fpath.filename().string());
     }
     catch(std::exception &e)
     {
@@ -84,16 +81,16 @@ FCSPOptions configure(vector<string> paths, bool long41, FCSPFMT fmt)
     vector<LevelOne> order1;
     vector<LevelTwo> order2;
     vector<Replacement> replacements;
-  for(auto p : paths)
+    for(auto p : paths)
     {
         LOG(DEBUG) << "Trying to load DCs from " << p << endline;
-      try{
-          auto descrBase = fs::path(p);
-          ifstream descr1((descrBase / "descr1.csv").c_str());
-          if(!descr1)
+        try{
+            auto descrBase = fs::path(p);
+            ifstream descr1((descrBase / "descr1.csv").c_str());
+            if(!descr1)
               throw logic_error("Failed to open descr1.csv DB, check your -d option");
-          ifstream descr2((descrBase / "descr2.sdf").c_str());
-          if(!descr2)
+            ifstream descr2((descrBase / "descr2.sdf").c_str());
+            if(!descr2)
                 throw logic_error("Failed to open descr2.sdf DB, check -d option");
             ifstream repl((descrBase / "replacement.sdf").c_str());
             if(!repl)
@@ -117,16 +114,16 @@ FCSPOptions configure(vector<string> paths, bool long41, FCSPFMT fmt)
 
 int main(int argc, char* argv[])
 {
-    bool plot = false;
     bool long41 = true;
+    int threads = 0;
     string descriptors;
     FCSPFMT fmt = FCSPFMT::JSON;
     vector<string> inputs;
     cxxopts::Options options(argv[0], " - example command line options");
     options.add_options()
     ("h,help", "Print help")
-    ("p,plot", "Plot DOT file", cxxopts::value<bool>())
     ("input", "List of MOL files to encode", cxxopts::value<vector<string>>())
+    ("t,threads", "Number of threads to use", cxxopts::value<int>(), "0")
     ("v,verbosity", "Level of verbosity", cxxopts::value<int>(), "0")
     ("f,format", "Output format: txt, csv, json", cxxopts::value<string>(), "json");
 
@@ -146,11 +143,14 @@ int main(int argc, char* argv[])
         {
             fmt = toFCSPFMT(options["format"].as<string>());
         }
+        if (options.count("threads"))
+        {
+            threads = options["threads"].as<int>();
+        }
         if (options.count("verbosity"))
         {
             logLevel = options["verbosity"].as<int>();
         }
-        plot = options.count("plot") ? options["plot"].as<bool>() : false;
         descriptors = options.count("descriptors") ? options["descriptors"].as<string>() : ".";
     }
     catch(cxxopts::OptionException &e) {
@@ -167,14 +167,35 @@ int main(int argc, char* argv[])
         auto paths = descrPaths();
         if(descriptors != ".")
             paths.insert(paths.begin(), descriptors);
-        FCSP fcsp(configure(paths, long41, fmt));
+        auto conf = configure(paths, long41, fmt);
+        
         if(inputs.empty()) {
+            FCSP fcsp(conf);
             fcsp.load(cin);
             fcsp.process(cout);
         }
         else {
-            for(auto& arg : inputs)
-                processFile(fcsp, arg, plot);
+            size_t n = threads <= 0 ? thread::hardware_concurrency() : threads;
+            size_t batch = (inputs.size() + n - 1) / n;
+            size_t batches = (inputs.size()+ batch - 1)/ batch;
+            LOG(INFO) << "CPUs: " << n << " batch-size: " << batch << endline;
+            vector<thread> threads(batches);
+            vector<stringstream> streams(batches);
+            for (size_t i = 0; i < batches; i ++) {
+                size_t start = i * batch;
+                size_t stop = start + batch > inputs.size() ? inputs.size() : start + batch;
+                auto t = thread([&inputs, &streams, &conf, i, start, stop](){
+                    FCSP fcsp(conf);
+                    for_each(inputs.begin()+start, inputs.begin()+stop, [&streams, &fcsp, i](string& inp){
+                        processFile(fcsp, inp, streams[i]);
+                    });
+                });
+                threads[i] = move(t);
+            }
+            for (size_t i = 0; i < batches; i++) {
+                threads[i].join();
+                cout << streams[i].str();
+            }
         }
     }
     catch(std::exception& e) {
