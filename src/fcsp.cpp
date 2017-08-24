@@ -1159,7 +1159,7 @@ private:
     ChemGraph graph;                                // mol graph
     //location of DCs in 'graph' and their numeric value
     vector<pair<vd, int>> dcs;            // sorted by vertex array of vertex->dc mappings
-    map<vd, vector<int>> dcsAtoms;  // extra atoms that belong to each DC  
+    std::unordered_map<vd, vector<int>> dcsAtoms;  // extra atoms that belong to each DC  
     std::unordered_map<vd, int> reserved_dcs; // atoms reserved by specific monolithic DC
     // unassembled output chunks, assembly depends on format variable
     vector<string> outPiecesCycle; // cycle descriptors go first on assembly
